@@ -4,9 +4,10 @@
 import asyncio
 import logging
 
-from aiogram import Bot, Dispatcher, F
+from aiogram import Bot, Dispatcher, Router, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Message
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -22,9 +23,15 @@ from handlers import registration, davomat, dars_qoldirish, tatil, balansim, bug
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Diagnostika va zaxira ushlagichlar uchun alohida router.
+# Diqqat: zaxira ushlagich ENG OXIRIDA ulanishi shart, aks holda u
+# barcha xabarlarni o'zi ushlab qoladi va menyu ishlamay qoladi.
+xizmat_router = Router()
+zaxira_router = Router()
 
+
+@xizmat_router.message(Command("tekshir"))
 async def diagnostika(message: Message):
-    """/tekshir — texnik holatni tekshirish."""
     kutish = await message.answer("⏳  Tekshirilmoqda...")
     matn = (
         f"<b>🔧  Diagnostika</b>\n"
@@ -47,16 +54,24 @@ async def diagnostika(message: Message):
             natija = await ns.query_all(db_id)
             matn += f"✅  {nomi} — {len(natija)} ta yozuv\n"
         except Exception as e:
-            qisqa = str(e)[:80]
-            matn += f"❌  {nomi} — {qisqa}\n"
+            matn += f"❌  {nomi} — {str(e)[:80]}\n"
 
     await kutish.edit_text(matn)
 
 
-async def notanish_xabar(message: Message):
-    """Menyudan tashqari yozilgan matnlar uchun."""
+@xizmat_router.message(Command("menyu"))
+async def menyu_korsatish(message: Message):
     await message.answer(
         "Quyidagi menyudan tanlang 👇",
+        reply_markup=kb.asosiy_menyu(),
+    )
+
+
+@zaxira_router.message(F.text)
+async def notanish_xabar(message: Message):
+    """Hech qaysi handlerga tushmagan matnlar uchun."""
+    await message.answer(
+        "Menyudan tanlang 👇",
         reply_markup=kb.asosiy_menyu(),
     )
 
@@ -68,17 +83,14 @@ async def main():
     )
     dp = Dispatcher(storage=MemoryStorage())
 
-    dp.message.register(diagnostika, F.text == "/tekshir")
-
+    dp.include_router(xizmat_router)
     dp.include_router(registration.router)
     dp.include_router(davomat.router)
     dp.include_router(dars_qoldirish.router)
     dp.include_router(tatil.router)
     dp.include_router(balansim.router)
     dp.include_router(bugungi.router)
-
-    # Eng oxirida: hech qaysi handlerga tushmagan matnlar
-    dp.message.register(notanish_xabar, F.text)
+    dp.include_router(zaxira_router)  # eng oxirida!
 
     scheduler = AsyncIOScheduler()
     sch.sozlash(scheduler, bot)
