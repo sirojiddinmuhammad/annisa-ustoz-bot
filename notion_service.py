@@ -12,7 +12,7 @@ import config
 NOTION_API = "https://api.notion.com/v1"
 HEADERS = {
     "Authorization": f"Bearer {config.NOTION_TOKEN}",
-    "Notion-Version": "2022-06-28",
+    "Notion-Version": "2025-09-03",
     "Content-Type": "application/json",
 }
 
@@ -26,9 +26,12 @@ async def _request(method: str, path: str, json: dict | None = None) -> dict:
         return resp.json()
 
 
-async def query_all(database_id: str, filter_: dict | None = None,
+async def query_all(data_source_id: str, filter_: dict | None = None,
                      sorts: list | None = None) -> list[dict]:
-    """Bazadan barcha mos yozuvlarni sahifalab (pagination) yig'ib qaytaradi."""
+    """Bazadan barcha mos yozuvlarni sahifalab (pagination) yig'ib qaytaradi.
+    Diqqat: Notion API 2025-09-03 versiyasida so'rov data_source_id orqali
+    yuboriladi, database_id orqali emas — /v1/databases/.../query endi
+    ishlamaydi (404 qaytaradi)."""
     results = []
     body: dict = {}
     if filter_:
@@ -40,7 +43,7 @@ async def query_all(database_id: str, filter_: dict | None = None,
     while True:
         if cursor:
             body["start_cursor"] = cursor
-        data = await _request("POST", f"/databases/{database_id}/query", body)
+        data = await _request("POST", f"/data_sources/{data_source_id}/query", body)
         results.extend(data["results"])
         if not data.get("has_more"):
             break
@@ -52,8 +55,11 @@ async def get_page(page_id: str) -> dict:
     return await _request("GET", f"/pages/{page_id}")
 
 
-async def create_page(database_id: str, properties: dict) -> dict:
-    body = {"parent": {"database_id": database_id}, "properties": properties}
+async def create_page(data_source_id: str, properties: dict) -> dict:
+    body = {
+        "parent": {"type": "data_source_id", "data_source_id": data_source_id},
+        "properties": properties,
+    }
     return await _request("POST", "/pages", body)
 
 
