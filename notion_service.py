@@ -94,6 +94,14 @@ def get_select(page: dict, prop_name: str) -> str | None:
     return sel["name"] if sel else None
 
 
+def get_status(page: dict, prop_name: str) -> str | None:
+    """Notionda "Status" turi "Select" dan boshqa — alohida o'qiladi.
+    Masalan Guruhlar bazasidagi "Guruh holati"."""
+    prop = page["properties"].get(prop_name, {})
+    st = prop.get("status")
+    return st["name"] if st else None
+
+
 def get_number(page: dict, prop_name: str) -> float | None:
     return page["properties"].get(prop_name, {}).get("number")
 
@@ -258,7 +266,11 @@ async def get_guruh_yozilishlari(guruh_id: str, holatlar: list[str] | None = Non
 
 
 def yozilish_chegirmasi_bor_mi(yozilish: dict) -> bool:
-    return get_checkbox(yozilish, "Chegirmasi bor")
+    """Diqqat: "Chegirmasi bor" — Notionda formula, uni API o'qiy olmaydi.
+    Shuning uchun "Chegirmalar" relation maydonini tekshiramiz — agar
+    yozilishga birorta chegirma bog'langan bo'lsa, tekshiruv davom etadi.
+    """
+    return bool(get_relation_ids(yozilish, "Chegirmalar"))
 
 
 async def get_talaba_ismi(talaba_id: str) -> str:
@@ -423,12 +435,15 @@ async def keyingi_dars_raqami(guruh_id: str) -> int:
 
 async def grafik_yaratish(guruh_id: str, sana: str, holat: str,
                            dars_raqami: int | None = None,
-                           sabab: str | None = None, izoh: str | None = None) -> dict:
+                           sabab: str | None = None, izoh: str | None = None,
+                           guruh_nomi: str | None = None) -> dict:
     properties = {
         "Guruh": prop_relation([guruh_id]),
         "Sana": prop_date(sana),
         "Holat": prop_select(holat),
     }
+    if guruh_nomi:
+        properties["Nomi"] = prop_title(f"{guruh_nomi} — {sana}")
     if dars_raqami is not None:
         properties["Dars raqami"] = prop_number(dars_raqami)
     if sabab:

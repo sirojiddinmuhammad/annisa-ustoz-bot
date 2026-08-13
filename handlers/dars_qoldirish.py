@@ -116,7 +116,7 @@ async def izoh_qabul_qilish(message: Message, state: FSMContext, bot: Bot):
         await ns.grafik_yangilash(grafik["id"], config.GRAFIK_DARS_QOLDIRILDI, sabab=sabab)
     else:
         await ns.grafik_yaratish(guruh["id"], sana, config.GRAFIK_DARS_QOLDIRILDI,
-                                  sabab=sabab, izoh=izoh)
+                                  sabab=sabab, izoh=izoh, guruh_nomi=guruh["nomi"])
 
     ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
     ustoz_ismi = ns.get_title(ustoz, "Ism") if ustoz else "Ustoz"
@@ -164,7 +164,7 @@ async def barcha_darslarni_qoldirish(callback: CallbackQuery, bot: Bot):
                                        sabab=config.SABAB_BOSHQA)
         else:
             await ns.grafik_yaratish(g["id"], bugun, config.GRAFIK_DARS_QOLDIRILDI,
-                                      sabab=config.SABAB_BOSHQA)
+                                      sabab=config.SABAB_BOSHQA, guruh_nomi=nomi)
         qoldirilgan.append(nomi)
 
     ustoz_ismi = ns.get_title(ustoz, "Ism")

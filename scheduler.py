@@ -65,7 +65,10 @@ async def ertalabki_eslatma(bot: Bot):
                 bugungi.append(g)
                 grafik = await ns.get_grafik_yozuv(g["id"], bugun_iso)
                 if not grafik:
-                    await ns.grafik_yaratish(g["id"], bugun_iso, config.GRAFIK_BELGILANMAGAN)
+                    await ns.grafik_yaratish(
+                        g["id"], bugun_iso, config.GRAFIK_BELGILANMAGAN,
+                        guruh_nomi=ns.get_title(g, "Guruh nomi"),
+                    )
 
         if not bugungi:
             continue
@@ -113,7 +116,7 @@ async def _oylik_hisob_tekshiruvi(bugun: date):
     davomatsiz_guruhlar = await ns.query_all(config.DB_GURUHLAR, guruhlar_filter)
 
     for guruh in davomatsiz_guruhlar:
-        if ns.get_select(guruh, "Guruh holati") != config.GURUH_FAOL:
+        if ns.get_status(guruh, "Guruh holati") != config.GURUH_FAOL:
             continue
 
         ustoz_ids = ns.get_relation_ids(guruh, "Ustoz")

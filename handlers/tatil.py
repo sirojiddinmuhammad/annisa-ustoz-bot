@@ -101,7 +101,7 @@ async def qolda_sana_sorash(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@router.message(Tatil.qolda_sana)
+@router.message(Tatil.qolda_sana, ~F.text.in_(kb.MENYU_TUGMALARI))
 async def qolda_sana_qabul(message: Message, state: FSMContext):
     d = _sanani_parse(message.text)
     if not d:
@@ -202,7 +202,8 @@ async def _bugungi_darslarni_qoldirish(ustoz_id: str, sana: str):
                                        sabab=config.SABAB_TATIL)
         else:
             await ns.grafik_yaratish(g["id"], sana, config.GRAFIK_DARS_QOLDIRILDI,
-                                      sabab=config.SABAB_TATIL)
+                                      sabab=config.SABAB_TATIL,
+                                      guruh_nomi=ns.get_title(g, "Guruh nomi"))
 
 
 @router.callback_query(F.data == "tat_bekor")

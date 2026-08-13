@@ -319,7 +319,8 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
         if grafik:
             await ns.grafik_yangilash(grafik["id"], config.GRAFIK_DARS_OTILDI, dars_raqami)
         else:
-            await ns.grafik_yaratish(guruh["id"], sana, config.GRAFIK_DARS_OTILDI, dars_raqami)
+            await ns.grafik_yaratish(guruh["id"], sana, config.GRAFIK_DARS_OTILDI,
+                                      dars_raqami, guruh_nomi=guruh["nomi"])
 
     await state.clear()
 
