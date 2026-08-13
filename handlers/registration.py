@@ -12,12 +12,10 @@ import config
 import notion_service as ns
 import keyboards as kb
 from states import RoyxatdanOtish
-from utils import markdown_himoya
+from utils import html_himoya, CHIZIQ
 
 router = Router()
 
-# Tasdiq kutayotgan so'rovlar: {request_id: {...}}
-# Eslatma: bot qayta ishga tushsa, kutayotgan so'rovlar tozalanadi.
 PENDING_REGISTRATIONS: dict[str, dict] = {}
 
 
@@ -28,14 +26,25 @@ async def start_handler(message: Message, state: FSMContext):
     if ustoz:
         ism = ns.get_title(ustoz, "Ism")
         await message.answer(
-            f"Assalomu alaykum, {ism}! Xush kelibsiz.",
+            f"<b>Assalomu alaykum, {html_himoya(ism)}!</b>\n"
+            f"{CHIZIQ}\n"
+            f"📋  <b>Davomat</b> — dars davomatini kiritish\n"
+            f"🚫  <b>Dars qoldirish</b> — dars bo'lmaganini belgilash\n"
+            f"🌴  <b>Ta'til olish</b> — dam olish kunlarini belgilash\n"
+            f"📅  <b>Bugungi darslar</b> — bugungi jadval\n"
+            f"💰  <b>Balansim</b> — daromadingiz\n"
+            f"{CHIZIQ}\n"
+            f"Quyidagi menyudan tanlang 👇",
             reply_markup=kb.asosiy_menyu(),
         )
         return
 
     await message.answer(
-        "Assalomu alaykum! Siz hali ro'yxatdan o'tmagansiz.\n\n"
-        "Markazdagi to'liq ismingizni yozing (Notiondagi yozilishi bilan bir xil):"
+        f"<b>Assalomu alaykum!</b>\n"
+        f"{CHIZIQ}\n"
+        f"Siz hali ro'yxatdan o'tmagansiz.\n\n"
+        f"Markazdagi <b>to'liq ismingizni</b> yozing.\n"
+        f"Notiondagi yozilishi bilan bir xil bo'lsin."
     )
     await state.set_state(RoyxatdanOtish.ism_kutilmoqda)
 
@@ -55,44 +64,39 @@ async def ism_qabul_qilish(message: Message, state: FSMContext, bot: Bot):
     }
 
     await message.answer(
-        "So'rovingiz adminga yuborildi. Tasdiqlangach xabar beramiz."
+        f"<b>⏳  So'rovingiz yuborildi</b>\n"
+        f"{CHIZIQ}\n"
+        f"Admin tasdiqlagach xabar beramiz."
     )
 
     matn = (
-        f"🆕 *Yangi ro'yxatdan o'tish so'rovi*\n\n"
-        f"Yozgan ismi: {markdown_himoya(ism)}\n"
-        f"Username: @{markdown_himoya(message.from_user.username or 'yoq')}\n"
-        f"Telegram ID: `{message.from_user.id}`\n\n"
+        f"<b>🆕  Ro'yxatdan o'tish so'rovi</b>\n"
+        f"{CHIZIQ}\n"
+        f"Yozgan ismi: <b>{html_himoya(ism)}</b>\n"
+        f"Username: @{html_himoya(message.from_user.username or 'yoq')}\n"
+        f"Telegram ID: <code>{message.from_user.id}</code>\n"
+        f"{CHIZIQ}\n"
     )
 
     if not nomzodlar:
-        matn += "Notionda mos ustoz topilmadi\\."
-        await bot.send_message(
-            config.ADMIN_ID, matn, parse_mode="MarkdownV2",
-            reply_markup=kb.royxatdan_otish_tanlov(0),
-        )
+        matn += "❌  Notionda mos ustoz topilmadi."
+        await bot.send_message(config.ADMIN_ID, matn,
+                                reply_markup=kb.royxatdan_otish_tanlov(0))
         return
 
     if len(nomzodlar) == 1:
-        matn += f"Notionda topildi: *{markdown_himoya(ns.get_title(nomzodlar[0], 'Ism'))}*"
-        await bot.send_message(
-            config.ADMIN_ID, matn, parse_mode="MarkdownV2",
-            reply_markup=kb.royxatdan_otish_tasdiq(0),
-        )
+        matn += f"✅  Notionda topildi:\n<b>{html_himoya(ns.get_title(nomzodlar[0], 'Ism'))}</b>"
+        await bot.send_message(config.ADMIN_ID, matn,
+                                reply_markup=kb.royxatdan_otish_tasdiq(0))
     else:
-        matn += "Bir nechta mos nomzod topildi, to'g'risini tanlang:\n"
+        matn += "Bir nechta mos nomzod topildi:\n"
         for i, n in enumerate(nomzodlar):
-            matn += f"{i + 1}\\. {markdown_himoya(ns.get_title(n, 'Ism'))}\n"
-        await bot.send_message(
-            config.ADMIN_ID, matn, parse_mode="MarkdownV2",
-            reply_markup=kb.royxatdan_otish_tanlov(len(nomzodlar)),
-        )
-
-    # req_id ni oxirgi PENDING yozuvga bog'laymiz (oddiy holatda bitta faol so'rov)
-    PENDING_REGISTRATIONS[req_id]["_req_id"] = req_id
+            matn += f"{i + 1}.  {html_himoya(ns.get_title(n, 'Ism'))}\n"
+        await bot.send_message(config.ADMIN_ID, matn,
+                                reply_markup=kb.royxatdan_otish_tanlov(len(nomzodlar)))
 
 
-async def _oxirgi_pending_topish() -> tuple[str, dict] | tuple[None, None]:
+def _oxirgi_pending():
     if not PENDING_REGISTRATIONS:
         return None, None
     req_id = list(PENDING_REGISTRATIONS.keys())[-1]
@@ -102,48 +106,52 @@ async def _oxirgi_pending_topish() -> tuple[str, dict] | tuple[None, None]:
 @router.callback_query(F.data.startswith("reg_pick:"))
 async def nomzod_tanlash(callback: CallbackQuery, bot: Bot):
     idx = int(callback.data.split(":")[1])
-    req_id, data = await _oxirgi_pending_topish()
+    req_id, data = _oxirgi_pending()
     if not data:
         await callback.answer("So'rov topilmadi.")
         return
-    ustoz = data["nomzodlar"][idx]
-    await _royxatni_tasdiqlash(ustoz, data, bot)
+    await _tasdiqlash(data["nomzodlar"][idx], data, bot)
     del PENDING_REGISTRATIONS[req_id]
-    await callback.message.edit_text(callback.message.text + "\n\n✅ Tasdiqlandi.")
+    await callback.message.edit_text(callback.message.html_text + "\n\n✅  Tasdiqlandi.")
 
 
 @router.callback_query(F.data.startswith("reg_ok:"))
 async def royxat_tasdiqlash(callback: CallbackQuery, bot: Bot):
-    req_id, data = await _oxirgi_pending_topish()
+    req_id, data = _oxirgi_pending()
     if not data:
         await callback.answer("So'rov topilmadi.")
         return
-    ustoz = data["nomzodlar"][0]
-    await _royxatni_tasdiqlash(ustoz, data, bot)
+    await _tasdiqlash(data["nomzodlar"][0], data, bot)
     del PENDING_REGISTRATIONS[req_id]
-    await callback.message.edit_text(callback.message.text + "\n\n✅ Tasdiqlandi.")
+    await callback.message.edit_text(callback.message.html_text + "\n\n✅  Tasdiqlandi.")
 
 
 @router.callback_query(F.data == "reg_no")
 async def royxat_rad_etish(callback: CallbackQuery, bot: Bot):
-    req_id, data = await _oxirgi_pending_topish()
+    req_id, data = _oxirgi_pending()
     if data:
         await bot.send_message(
             data["tg_id"],
-            "Kechirasiz, ro'yxatdan o'tish so'rovingiz rad etildi. "
-            "Iltimos, ismingizni to'g'ri yozib qayta urinib ko'ring yoki markaz bilan bog'laning."
+            f"<b>❌  So'rov rad etildi</b>\n"
+            f"{CHIZIQ}\n"
+            f"Ismingizni to'g'ri yozib qayta urinib ko'ring\n"
+            f"yoki markaz bilan bog'laning."
         )
         del PENDING_REGISTRATIONS[req_id]
-    await callback.message.edit_text(callback.message.text + "\n\n❌ Rad etildi.")
+    await callback.message.edit_text(callback.message.html_text + "\n\n❌  Rad etildi.")
 
 
-async def _royxatni_tasdiqlash(ustoz: dict, data: dict, bot: Bot):
+async def _tasdiqlash(ustoz: dict, data: dict, bot: Bot):
     tg_id = data["tg_id"]
     await ns.clear_telegram_id_if_taken(tg_id)
     await ns.set_ustoz_telegram_id(ustoz["id"], tg_id)
     ism = ns.get_title(ustoz, "Ism")
     await bot.send_message(
         tg_id,
-        f"Tabriklaymiz, {ism}! Ro'yxatdan o'tishingiz tasdiqlandi.",
+        f"<b>✅  Tabriklaymiz, {html_himoya(ism)}!</b>\n"
+        f"{CHIZIQ}\n"
+        f"Ro'yxatdan o'tishingiz tasdiqlandi.\n"
+        f"Endi botdan foydalanishingiz mumkin.\n\n"
+        f"Quyidagi menyudan tanlang 👇",
         reply_markup=kb.asosiy_menyu(),
     )

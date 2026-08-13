@@ -3,32 +3,40 @@
 from datetime import date
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery
+from aiogram.types import Message
 
 import notion_service as ns
 import money_service as ms
-from utils import summa_format, OYLAR
+import keyboards as kb
+from utils import summa_format, OYLAR, CHIZIQ
 
 router = Router()
 
 
-@router.callback_query(F.data == "menu_balans")
-async def balansim(callback: CallbackQuery):
-    ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
+@router.message(F.text == kb.BTN_BALANS)
+async def balansim(message: Message):
+    ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
     if not ustoz:
-        await callback.message.answer("Siz ro'yxatdan o'tmagansiz. /start ni bosing.")
+        await message.answer("Siz hali ro'yxatdan o'tmagansiz.\n/start ni bosing.")
         return
 
-    await callback.answer("Hisoblanmoqda...")
+    kutish = await message.answer("⏳  Hisoblanmoqda...")
     natija = await ms.ustoz_balansi_hisobla(ustoz)
     oy_nomi = OYLAR[date.today().month - 1]
 
-    matn = (
-        "💰 Sizning balansingiz\n\n"
-        f"Jami ishlab topgan: {summa_format(natija['ishlab_topgani'])} so'm\n"
-        f"Berilgan oyliklar: {summa_format(natija['berilgan_oyliklar'])} so'm\n"
-        "─────────────────────\n"
-        f"Balans: {summa_format(natija['balans'])} so'm\n\n"
-        f"Shu oy ({oy_nomi}): {summa_format(natija['shu_oy'])} so'm"
+    balans = natija["balans"]
+    belgi = "🟢" if balans >= 0 else "🔴"
+
+    await kutish.edit_text(
+        f"<b>💰  Balansingiz</b>\n"
+        f"{CHIZIQ}\n"
+        f"Jami ishlab topgan\n"
+        f"<b>{summa_format(natija['ishlab_topgani'])}</b> so'm\n\n"
+        f"Berilgan oyliklar\n"
+        f"<b>{summa_format(natija['berilgan_oyliklar'])}</b> so'm\n"
+        f"{CHIZIQ}\n"
+        f"{belgi}  <b>Balans:  {summa_format(balans)} so'm</b>\n"
+        f"{CHIZIQ}\n"
+        f"📆  Shu oy ({oy_nomi})\n"
+        f"<b>{summa_format(natija['shu_oy'])}</b> so'm"
     )
-    await callback.message.edit_text(matn)

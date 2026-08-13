@@ -4,43 +4,41 @@
 from datetime import date
 
 from aiogram import Router, F, Bot
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
 import config
 import notion_service as ns
 import keyboards as kb
 from states import Davomat
-from utils import sana_ozbekcha, yaqin_kunlar, HAFTA_KUNLARI, markdown_himoya
+from utils import sana_ozbekcha, yaqin_kunlar, HAFTA_KUNLARI, html_himoya, CHIZIQ
 
 router = Router()
 
 HOLAT_KETMA_KET = [config.HOLAT_KELDI, config.HOLAT_KELMADI, config.HOLAT_SABABLI]
 
 
-async def _ustoz_yoki_xato(callback: CallbackQuery):
-    ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
+@router.message(F.text == kb.BTN_DAVOMAT)
+async def davomat_boshlash(message: Message, state: FSMContext):
+    await state.clear()
+    ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
     if not ustoz:
-        await callback.message.answer("Siz ro'yxatdan o'tmagansiz. /start ni bosing.")
-        return None
-    return ustoz
-
-
-@router.callback_query(F.data == "menu_davomat")
-async def davomat_boshlash(callback: CallbackQuery, state: FSMContext):
-    ustoz = await _ustoz_yoki_xato(callback)
-    if not ustoz:
+        await message.answer("Siz hali ro'yxatdan o'tmagansiz.\n/start ni bosing.")
         return
+
     guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=True)
     if not guruhlar:
-        await callback.message.edit_text("Sizda hozircha faol (davomatli) guruh yo'q.")
+        await message.answer("📭  Sizda hozircha faol guruh yo'q.")
         return
 
     guruh_royxati = [{"id": g["id"], "nomi": ns.get_title(g, "Guruh nomi")} for g in guruhlar]
     await state.update_data(guruhlar=guruh_royxati)
     await state.set_state(Davomat.guruh_tanlash)
-    await callback.message.edit_text(
-        "Qaysi guruh?", reply_markup=kb.guruhlar_royxati(guruh_royxati, "dvm")
+    await message.answer(
+        "<b>📋  Davomat</b>\n"
+        f"{CHIZIQ}\n"
+        "Qaysi guruhga davomat kiritasiz?",
+        reply_markup=kb.guruhlar_royxati(guruh_royxati, "dvm"),
     )
 
 
@@ -51,18 +49,17 @@ async def guruh_tanlandi(callback: CallbackQuery, state: FSMContext):
     guruh = data["guruhlar"][idx]
     guruh_page = await ns.get_page(guruh["id"])
 
-    dars_kunlari_nomlari = ns.get_multi_select(guruh_page, "Dars kunlari")
-    dars_kunlari_idx = [HAFTA_KUNLARI.index(n) for n in dars_kunlari_nomlari if n in HAFTA_KUNLARI]
-    if not dars_kunlari_idx:
-        sanalar = yaqin_kunlar(list(range(7)), soni=4)  # aniqlanmagan bo'lsa oxirgi 4 kun
-    else:
-        sanalar = yaqin_kunlar(dars_kunlari_idx, soni=4)
+    kunlari = [HAFTA_KUNLARI.index(n) for n in ns.get_multi_select(guruh_page, "Dars kunlari")
+               if n in HAFTA_KUNLARI]
+    sanalar = yaqin_kunlar(kunlari or list(range(7)), soni=4)
 
     sana_royxati = [{"label": sana_ozbekcha(s), "value": s.isoformat()} for s in sanalar]
     await state.update_data(tanlangan_guruh=guruh, sanalar=sana_royxati)
     await state.set_state(Davomat.sana_tanlash)
     await callback.message.edit_text(
-        f"Guruh: {guruh['nomi']}\nQaysi kun uchun?",
+        f"<b>📚  {html_himoya(guruh['nomi'])}</b>\n"
+        f"{CHIZIQ}\n"
+        "Qaysi kun uchun?",
         reply_markup=kb.sanalar_royxati(sana_royxati, "dvm"),
     )
 
@@ -74,14 +71,14 @@ async def sana_tanlandi(callback: CallbackQuery, state: FSMContext):
     sana = data["sanalar"][idx]["value"]
     guruh = data["tanlangan_guruh"]
     await state.update_data(tanlangan_sana=sana)
+    await callback.answer("Yuklanmoqda...")
     await _davomat_ekranini_ochish(callback, state, guruh, sana)
 
 
-async def _davomat_ekranini_ochish(callback: CallbackQuery, state: FSMContext, guruh: dict, sana: str):
+async def _davomat_ekranini_ochish(callback: CallbackQuery, state: FSMContext,
+                                     guruh: dict, sana: str):
     grafik = await ns.get_grafik_yozuv(guruh["id"], sana)
-    allaqachon_bor = grafik and ns.get_select(grafik, "Holat") == config.GRAFIK_DARS_OTILDI
-
-    if allaqachon_bor:
+    if grafik and ns.get_select(grafik, "Holat") == config.GRAFIK_DARS_OTILDI:
         await _mavjud_yozuvni_korsatish(callback, state, guruh, sana)
         return
 
@@ -92,33 +89,50 @@ async def _davomat_ekranini_ochish(callback: CallbackQuery, state: FSMContext, g
         if not talaba_id:
             continue
         ismi = await ns.get_talaba_ismi(talaba_id[0])
-        yozilish_holati = ns.get_select(y, "Holat")
-        tatilda = yozilish_holati == config.YOZILISH_TATILDA
+        tatilda = ns.get_select(y, "Holat") == config.YOZILISH_TATILDA
         talabalar.append({
             "yozilish_id": y["id"],
             "ismi": ismi,
             "holat": config.HOLAT_SABABLI if tatilda else config.HOLAT_KELDI,
             "tatilda": tatilda,
             "chegirmasi_bor": ns.yozilish_chegirmasi_bor_mi(y),
-            "davomat_id": None,  # yangi yozuv
+            "davomat_id": None,
         })
 
     if not talabalar:
-        await callback.message.edit_text("Bu guruhda faol talaba topilmadi.")
+        await callback.message.edit_text("📭  Bu guruhda faol talaba topilmadi.")
+        await state.clear()
         return
 
-    await state.update_data(talabalar=talabalar, rejim="yangi")
+    # Ta'tildagilar pastda tursin
+    talabalar.sort(key=lambda t: t["tatilda"])
+
+    await state.update_data(talabalar=talabalar)
     await state.set_state(Davomat.royxat_korish)
-    await callback.message.edit_text(
-        f"📚 {guruh['nomi']}\n📅 {sana_ozbekcha(date.fromisoformat(sana))}\n\n"
-        "Talabani bosib holatini o'zgartiring:",
-        reply_markup=kb.davomat_royxati(talabalar),
+    await callback.message.edit_text(_royxat_matni(guruh, sana, len(talabalar)),
+                                      reply_markup=kb.davomat_royxati(talabalar))
+
+
+def _royxat_matni(guruh: dict, sana: str, soni: int) -> str:
+    return (
+        f"<b>📚  {html_himoya(guruh['nomi'])}</b>\n"
+        f"📅  {sana_ozbekcha(date.fromisoformat(sana))}\n"
+        f"{CHIZIQ}\n"
+        f"<b>Qanday ishlaydi</b>\n"
+        f"Ism ustiga bosing — holat almashadi:\n"
+        f"✅ Keldi  →  ❌ Kelmadi  →  🟠 Sababli\n\n"
+        f"Boshida hamma <b>✅ Keldi</b> turadi.\n"
+        f"Faqat kelmaganlarni belgilang.\n"
+        f"{CHIZIQ}\n"
+        f"👥  Jami: {soni} ta talaba"
     )
 
 
-async def _mavjud_yozuvni_korsatish(callback: CallbackQuery, state: FSMContext, guruh: dict, sana: str):
+async def _mavjud_yozuvni_korsatish(callback: CallbackQuery, state: FSMContext,
+                                      guruh: dict, sana: str):
     yozilishlar = await ns.get_guruh_yozilishlari(
-        guruh["id"], holatlar=[config.YOZILISH_OQIYABDI, config.YOZILISH_TATILDA, config.YOZILISH_TUGATDI]
+        guruh["id"],
+        holatlar=[config.YOZILISH_OQIYABDI, config.YOZILISH_TATILDA, config.YOZILISH_TUGATDI],
     )
     talabalar = []
     hisob = {config.HOLAT_KELDI: 0, config.HOLAT_KELMADI: 0, config.HOLAT_SABABLI: 0}
@@ -140,20 +154,23 @@ async def _mavjud_yozuvni_korsatish(callback: CallbackQuery, state: FSMContext, 
             "davomat_id": davomat["id"],
         })
 
-    await state.update_data(talabalar=talabalar, rejim="mavjud")
+    await state.update_data(talabalar=talabalar)
     await state.set_state(Davomat.mavjud_yozuv_korish)
 
     matn = (
-        f"⚠️ {guruh['nomi']} guruhiga {sana_ozbekcha(date.fromisoformat(sana))} uchun "
-        f"davomat allaqachon kiritilgan.\n\n"
-        f"✅ Keldi: {hisob[config.HOLAT_KELDI]}   "
-        f"❌ Kelmadi: {hisob[config.HOLAT_KELMADI]}   "
-        f"🟠 Sababli: {hisob[config.HOLAT_SABABLI]}\n\n"
+        f"<b>⚠️  Davomat allaqachon kiritilgan</b>\n"
+        f"{CHIZIQ}\n"
+        f"📚  {html_himoya(guruh['nomi'])}\n"
+        f"📅  {sana_ozbekcha(date.fromisoformat(sana))}\n\n"
+        f"✅ {hisob[config.HOLAT_KELDI]}   "
+        f"❌ {hisob[config.HOLAT_KELMADI]}   "
+        f"🟠 {hisob[config.HOLAT_SABABLI]}\n"
+        f"{CHIZIQ}\n"
     )
     for t in talabalar:
         belgi = kb.HOLAT_BELGISI.get(t["holat"], "•")
-        matn += f"{belgi} {t['ismi']}\n"
-    matn += "\nNima qilasiz?"
+        matn += f"{belgi}  {html_himoya(t['ismi'])}\n"
+    matn += f"{CHIZIQ}\nNima qilamiz?"
 
     await callback.message.edit_text(matn, reply_markup=kb.mavjud_yozuv_tanlovi())
 
@@ -161,10 +178,17 @@ async def _mavjud_yozuvni_korsatish(callback: CallbackQuery, state: FSMContext, 
 @router.callback_query(Davomat.mavjud_yozuv_korish, F.data == "dvm_edit")
 async def tahrirlashga_otish(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    await state.update_data(rejim="tahrirlash")
+    guruh = data["tanlangan_guruh"]
+    sana = data["tanlangan_sana"]
     await state.set_state(Davomat.royxat_korish)
     await callback.message.edit_text(
-        "Holatlarni tahrirlang:", reply_markup=kb.davomat_royxati(data["talabalar"])
+        f"<b>✏️  Tahrirlash</b>\n"
+        f"{CHIZIQ}\n"
+        f"📚  {html_himoya(guruh['nomi'])}\n"
+        f"📅  {sana_ozbekcha(date.fromisoformat(sana))}\n\n"
+        f"Ism ustiga bosib holatni o'zgartiring,\n"
+        f"so'ng <b>Saqlash</b> ni bosing.",
+        reply_markup=kb.davomat_royxati(data["talabalar"]),
     )
 
 
@@ -176,20 +200,23 @@ async def ochirish_sorash(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Yozuv topilmadi.")
         return
 
-    # Eng eski davomat yozuvini olib, muddatni tekshiramiz
-    birinchi_id = talabalar[0]["davomat_id"]
-    davomat_page = await ns.get_page(birinchi_id)
+    davomat_page = await ns.get_page(talabalar[0]["davomat_id"])
     if not ns.davomat_yaratilgan_vaqti_ok_mi(davomat_page):
         await callback.message.edit_text(
-            f"Bu davomat {config.DAVOMAT_OCHIRISH_MUDDATI_KUN} kundan eski. "
-            "O'zgartirish uchun adminga murojaat qiling."
+            f"<b>🔒  O'chirib bo'lmaydi</b>\n"
+            f"{CHIZIQ}\n"
+            f"Bu davomat {config.DAVOMAT_OCHIRISH_MUDDATI_KUN} kundan eski.\n"
+            f"O'zgartirish uchun adminga murojaat qiling."
         )
         await state.clear()
         return
 
     await callback.message.edit_text(
-        "Rostdan ham bu kunning davomatini butunlay o'chirasizmi?\n"
-        "Bu amalni qaytarib bo'lmaydi.",
+        f"<b>🗑  Davomatni o'chirish</b>\n"
+        f"{CHIZIQ}\n"
+        f"Bu kunning barcha davomat yozuvlari o'chiriladi.\n"
+        f"Dars holati «Belgilanmagan» ga qaytadi.\n\n"
+        f"Rostdan davom etamizmi?",
         reply_markup=kb.ochirish_tasdiq(),
     )
 
@@ -197,24 +224,27 @@ async def ochirish_sorash(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "dvm_del_no")
 async def ochirish_bekor(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("Bekor qilindi. Hech narsa o'zgarmadi.")
+    await callback.message.edit_text("↩️  Bekor qilindi. Hech narsa o'zgarmadi.")
 
 
 @router.callback_query(F.data == "dvm_del_yes")
-async def ochirish_tasdiqlandi(callback: CallbackQuery, state: FSMContext, bot: Bot):
+async def ochirish_tasdiqlandi(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     talabalar = data["talabalar"]
     guruh = data["tanlangan_guruh"]
     sana = data["tanlangan_sana"]
 
+    await callback.answer("O'chirilmoqda...")
     davomat_sahifalari = [await ns.get_page(t["davomat_id"]) for t in talabalar]
     await ns.davomat_ochirish(davomat_sahifalari)
     await ns.grafik_belgilanmaganga_qaytarish(guruh["id"], sana)
 
     await state.clear()
     await callback.message.edit_text(
-        f"🗑 {guruh['nomi']} guruhining {sana_ozbekcha(date.fromisoformat(sana))} "
-        "kungi davomati o'chirildi."
+        f"<b>🗑  O'chirildi</b>\n"
+        f"{CHIZIQ}\n"
+        f"📚  {html_himoya(guruh['nomi'])}\n"
+        f"📅  {sana_ozbekcha(date.fromisoformat(sana))}"
     )
 
 
@@ -224,9 +254,10 @@ async def holat_almashtirish(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     talabalar = data["talabalar"]
     joriy = talabalar[idx]["holat"]
-    keyingi_idx = (HOLAT_KETMA_KET.index(joriy) + 1) % len(HOLAT_KETMA_KET)
-    talabalar[idx]["holat"] = HOLAT_KETMA_KET[keyingi_idx]
+    keyingi = (HOLAT_KETMA_KET.index(joriy) + 1) % len(HOLAT_KETMA_KET)
+    talabalar[idx]["holat"] = HOLAT_KETMA_KET[keyingi]
     await state.update_data(talabalar=talabalar)
+    await callback.answer()
     await callback.message.edit_reply_markup(reply_markup=kb.davomat_royxati(talabalar))
 
 
@@ -238,6 +269,9 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
     sana = data["tanlangan_sana"]
     guruh_page = await ns.get_page(guruh["id"])
 
+    await callback.answer("Saqlanmoqda...")
+    await callback.message.edit_text("⏳  Saqlanmoqda, biroz kuting...")
+
     hisob = {config.HOLAT_KELDI: 0, config.HOLAT_KELMADI: 0, config.HOLAT_SABABLI: 0}
     dars_bolgan = False
 
@@ -248,37 +282,30 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
         if holat in (config.HOLAT_KELDI, config.HOLAT_KELMADI):
             dars_bolgan = True
 
-        # Ta'tildagi talaba kelib qolsa — adminga xabar
         if t["tatilda"] and holat != config.HOLAT_SABABLI:
             await bot.send_message(
                 config.ADMIN_ID,
-                f"ℹ️ {t['ismi']} ({guruh['nomi']}) ta'tilda edi, lekin "
-                f"{sana_ozbekcha(date.fromisoformat(sana))} kuni "
-                f"\"{holat}\" deb belgilandi."
+                f"ℹ️  <b>Ta'tildagi talaba darsga keldi</b>\n"
+                f"{CHIZIQ}\n"
+                f"Talaba: {html_himoya(t['ismi'])}\n"
+                f"Guruh: {html_himoya(guruh['nomi'])}\n"
+                f"Sana: {sana_ozbekcha(date.fromisoformat(sana))}\n"
+                f"Belgilandi: {holat}"
             )
 
-        qolda_summa = None
-        qolda_ustoz_ulushi = None
-        chegirma_id = None
-
+        qolda_summa = qolda_ustoz = chegirma_id = None
         if holat in (config.HOLAT_KELDI, config.HOLAT_KELMADI) and t.get("chegirmasi_bor"):
-            qolda_summa, qolda_ustoz_ulushi, chegirma_id = await _chegirma_hisobla(
+            qolda_summa, qolda_ustoz, chegirma_id = await _chegirma_hisobla(
                 t["yozilish_id"], guruh_page, sana
             )
 
         if t.get("davomat_id"):
             await ns.davomat_holatini_yangilash(t["davomat_id"], holat)
-            # Eslatma: tahrirlashda chegirma qayta hisoblanmaydi — mavjud
-            # bog'lanish saqlanadi. Chegirma faqat yangi yozuvda qo'llanadi.
         else:
             await ns.davomat_yaratish(
-                yozilish_id=t["yozilish_id"],
-                talaba_ismi=t["ismi"],
-                guruh_nomi=guruh["nomi"],
-                sana=sana,
-                holat=holat,
-                qolda_summa=qolda_summa,
-                qolda_ustoz_ulushi=qolda_ustoz_ulushi,
+                yozilish_id=t["yozilish_id"], talaba_ismi=t["ismi"],
+                guruh_nomi=guruh["nomi"], sana=sana, holat=holat,
+                qolda_summa=qolda_summa, qolda_ustoz_ulushi=qolda_ustoz,
                 chegirma_id=chegirma_id,
             )
 
@@ -292,23 +319,34 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
     await state.clear()
 
-    matn = (
-        "✅ Saqlandi!\n"
-        f"📚 {guruh['nomi']}\n"
-        f"📅 {sana_ozbekcha(date.fromisoformat(sana))}\n\n"
-        f"✅ Keldi: {hisob[config.HOLAT_KELDI]}   "
-        f"❌ Kelmadi: {hisob[config.HOLAT_KELMADI]}   "
-        f"🟠 Sababli: {hisob[config.HOLAT_SABABLI]}\n\n"
+    # 1-xabar: ustozga tasdiq
+    await callback.message.edit_text(
+        f"<b>✅  Saqlandi</b>\n"
+        f"{CHIZIQ}\n"
+        f"📚  {html_himoya(guruh['nomi'])}\n"
+        f"📅  {sana_ozbekcha(date.fromisoformat(sana))}\n\n"
+        f"👇  Quyidagi xabarni guruhga yuborishingiz mumkin."
+    )
+
+    # 2-xabar: guruhga repost uchun toza hisobot
+    hisobot = (
+        f"<b>📚  {html_himoya(guruh['nomi'])}</b>\n"
+        f"📅  {sana_ozbekcha(date.fromisoformat(sana))}\n"
+        f"{CHIZIQ}\n"
     )
     for t in talabalar:
         belgi = kb.HOLAT_BELGISI.get(t["holat"], "•")
-        matn += f"{belgi} {t['ismi']}\n"
-
-    await callback.message.edit_text(matn)
+        hisobot += f"{belgi}  {html_himoya(t['ismi'])}\n"
+    hisobot += (
+        f"{CHIZIQ}\n"
+        f"✅ Keldi: {hisob[config.HOLAT_KELDI]}   "
+        f"❌ Kelmadi: {hisob[config.HOLAT_KELMADI]}   "
+        f"🟠 Sababli: {hisob[config.HOLAT_SABABLI]}"
+    )
+    await callback.message.answer(hisobot)
 
 
 async def _chegirma_hisobla(yozilish_id: str, guruh_page: dict, sana: str):
-    """Qaytaradi: (qolda_summa, qolda_ustoz_ulushi, chegirma_id) yoki (None, None, None)"""
     chegirma = await ns.get_faol_chegirma(yozilish_id)
     if not chegirma:
         return None, None, None
@@ -317,23 +355,20 @@ async def _chegirma_hisobla(yozilish_id: str, guruh_page: dict, sana: str):
     if boshlanish and sana < boshlanish[:10]:
         return None, None, None
 
-    dars_soni_limit = ns.get_number(chegirma, "Dars soni") or 0
-    joriy_soni = await ns.chegirmali_darslar_soni(chegirma["id"])
-    if joriy_soni >= dars_soni_limit:
-        # Limit allaqachon to'lgan — ehtiyot chorasi sifatida chegirmani tugatamiz
+    limit = ns.get_number(chegirma, "Dars soni") or 0
+    joriy = await ns.chegirmali_darslar_soni(chegirma["id"])
+    if joriy >= limit:
         await ns.chegirmani_tugat(chegirma["id"], sana)
         return None, None, None
 
-    dars_narxi = ns.guruh_dars_narxi(guruh_page)
-    ustoz_foiz = ns.guruh_ustoz_ulushi_foiz(guruh_page)
-    chegirma_foiz = ns.get_number(chegirma, "Chegirma %") or 0
-    kim_kotaradi = ns.get_select(chegirma, "Kim ko'taradi")
-
     talaba_toladi, ustoz_ulushi = ns.chegirmali_summa_hisobla(
-        dars_narxi, ustoz_foiz, chegirma_foiz, kim_kotaradi
+        ns.guruh_dars_narxi(guruh_page),
+        ns.guruh_ustoz_ulushi_foiz(guruh_page),
+        ns.get_number(chegirma, "Chegirma %") or 0,
+        ns.get_select(chegirma, "Kim ko'taradi"),
     )
 
-    if joriy_soni + 1 >= dars_soni_limit:
+    if joriy + 1 >= limit:
         await ns.chegirmani_tugat(chegirma["id"], sana)
 
     return talaba_toladi, ustoz_ulushi, chegirma["id"]

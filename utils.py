@@ -51,3 +51,23 @@ def yaqin_kunlar(dars_kunlari: list[int], soni: int = 4) -> list[date]:
 
 def summa_format(summa: float) -> str:
     return f"{int(round(summa)):,}".replace(",", " ")
+
+
+def html_himoya(matn: str) -> str:
+    """Telegram HTML rejimi uchun maxsus belgilarni himoyalaydi."""
+    return (matn.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;"))
+
+
+CHIZIQ = "━━━━━━━━━━━━━━━━━━━"
+
+
+def muddat_sanalari(boshlanish: date) -> list[dict]:
+    """Ta'til tugash sanasi uchun tayyor muddatlar."""
+    return [
+        {"label": "3 kun", "kun": 2},
+        {"label": "1 hafta", "kun": 6},
+        {"label": "2 hafta", "kun": 13},
+        {"label": "1 oy", "kun": 30},
+    ]

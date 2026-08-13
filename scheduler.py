@@ -11,7 +11,7 @@ from apscheduler.triggers.cron import CronTrigger
 import config
 import notion_service as ns
 import keyboards as kb
-from utils import HAFTA_KUNLARI, sana_ozbekcha, markdown_himoya
+from utils import HAFTA_KUNLARI, sana_ozbekcha, html_himoya, CHIZIQ
 
 
 def sozlash(scheduler: AsyncIOScheduler, bot: Bot):
@@ -69,9 +69,14 @@ async def ertalabki_eslatma(bot: Bot):
         if not bugungi:
             continue
 
-        matn = f"📅 Bugungi darslar — {sana_ozbekcha(bugun)}\n\n"
+        matn = (
+            f"<b>📅  Bugungi darslar</b>\n"
+            f"{sana_ozbekcha(bugun)}\n"
+            f"{CHIZIQ}\n"
+        )
         for g in bugungi:
-            matn += f"• {ns.get_title(g, 'Guruh nomi')}\n"
+            matn += f"📚  <b>{html_himoya(ns.get_title(g, 'Guruh nomi'))}</b>\n"
+        matn += f"{CHIZIQ}\nDars tugagach davomat kiriting 👇"
 
         belgilanmagan = await ns.belgilanmagan_darslar()
         guruh_idlari = {g["id"] for g in davomatli_guruhlar}
@@ -81,8 +86,10 @@ async def ertalabki_eslatma(bot: Bot):
         ]
         if ozimizniki:
             matn = (
-                f"⚠️ Oxirgi {config.BELGILANMAGAN_TEKSHIRUV_KUN} kunda "
-                f"{len(ozimizniki)} ta belgilanmagan dars bor!\n\n"
+                f"<b>⚠️  Diqqat</b>\n"
+                f"{CHIZIQ}\n"
+                f"Oxirgi {config.BELGILANMAGAN_TEKSHIRUV_KUN} kunda "
+                f"<b>{len(ozimizniki)} ta</b> dars belgilanmagan.\n\n"
             ) + matn
 
         try:
@@ -170,15 +177,19 @@ async def kunlik_hisobot(bot: Bot):
     ustozlar = await ns.get_barcha_ustozlar_faol()
     tatildagilar = [u for u in ustozlar if ns.ustoz_tatilda_mi(u, date.today())]
 
-    matn = f"📊 *{markdown_himoya(sana_ozbekcha(date.today()))} — kunlik hisobot*\n\n"
-    matn += f"✅ Dars o'tildi: {len(otildi)} guruh\n"
-    matn += f"🚫 Dars qoldirildi: {len(qoldirildi)} guruh\n"
-    matn += f"⚠️ Belgilanmagan: {len(belgilanmagan)} guruh\n"
+    matn = (
+        f"<b>📊  Kunlik hisobot</b>\n"
+        f"{sana_ozbekcha(date.today())}\n"
+        f"{CHIZIQ}\n"
+        f"✅  Dars o'tildi:  <b>{len(otildi)}</b>\n"
+        f"🚫  Dars qoldirildi:  <b>{len(qoldirildi)}</b>\n"
+        f"⚠️  Belgilanmagan:  <b>{len(belgilanmagan)}</b>\n"
+    )
     if tatildagilar:
         ismlar = ", ".join(ns.get_title(u, "Ism") for u in tatildagilar)
-        matn += f"🌴 Ta'tilda: {markdown_himoya(ismlar)}\n"
+        matn += f"{CHIZIQ}\n🌴  Ta'tilda: {html_himoya(ismlar)}"
 
-    await bot.send_message(config.ADMIN_ID, matn, parse_mode="MarkdownV2")
+    await bot.send_message(config.ADMIN_ID, matn)
 
 
 async def tatil_nazorati(bot: Bot):
@@ -201,7 +212,11 @@ async def tatil_nazorati(bot: Bot):
         if tugash_sana == bugun + timedelta(days=1):
             try:
                 await bot.send_message(
-                    tg_id, "🌴 Ta'tilingiz ertaga tugaydi. Ertaga qaytasizmi?",
+                    tg_id,
+                    f"<b>🌴  Ta'til tugayapti</b>\n"
+                    f"{CHIZIQ}\n"
+                    f"Ta'tilingiz ertaga tugaydi.\n"
+                    f"Ertaga qaytasizmi?",
                     reply_markup=kb.tatil_qaytish_sorovi(),
                 )
             except Exception:

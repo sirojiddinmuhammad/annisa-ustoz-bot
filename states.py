@@ -1,5 +1,5 @@
 # states.py
-# Barcha suhbat bosqichlari (Finite State Machine) shu yerda tavsiflanadi.
+# Barcha suhbat bosqichlari (Finite State Machine).
 
 from aiogram.fsm.state import State, StatesGroup
 
@@ -11,8 +11,8 @@ class RoyxatdanOtish(StatesGroup):
 class Davomat(StatesGroup):
     guruh_tanlash = State()
     sana_tanlash = State()
-    royxat_korish = State()  # talabalar ro'yxati bilan davomat belgilash
-    mavjud_yozuv_korish = State()  # allaqachon kiritilgan kun uchun tanlov ekrani
+    royxat_korish = State()
+    mavjud_yozuv_korish = State()
 
 
 class DarsQoldirish(StatesGroup):
@@ -23,8 +23,9 @@ class DarsQoldirish(StatesGroup):
 
 
 class Tatil(StatesGroup):
-    boshlanish_sana = State()
-    tugash_sana = State()
+    boshlanish_tanlash = State()
+    muddat_tanlash = State()
+    qolda_sana = State()
     tasdiq = State()
 
 

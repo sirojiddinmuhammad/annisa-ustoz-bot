@@ -6,14 +6,16 @@ import logging
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import CallbackQuery
+from aiogram.types import Message
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import config
 import keyboards as kb
 import notion_service as ns
 import scheduler as sch
+from utils import CHIZIQ
 
 from handlers import registration, davomat, dars_qoldirish, tatil, balansim, bugungi
 
@@ -21,10 +23,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def diagnostika(message):
+async def diagnostika(message: Message):
     """/tekshir — texnik holatni tekshirish."""
-    matn = "🔧 Diagnostika\n\n"
-    matn += f"Admin ID mos keladi: {'✅' if message.from_user.id == config.ADMIN_ID else '❌'}\n\n"
+    kutish = await message.answer("⏳  Tekshirilmoqda...")
+    matn = (
+        f"<b>🔧  Diagnostika</b>\n"
+        f"{CHIZIQ}\n"
+        f"Admin huquqi: {'✅' if message.from_user.id == config.ADMIN_ID else '❌'}\n"
+        f"{CHIZIQ}\n"
+    )
     bazalar = {
         "Ustozlar": config.DB_USTOZLAR,
         "Guruhlar": config.DB_GURUHLAR,
@@ -37,21 +44,31 @@ async def diagnostika(message):
     }
     for nomi, db_id in bazalar.items():
         try:
-            await ns.query_all(db_id)
-            matn += f"✅ {nomi}\n"
+            natija = await ns.query_all(db_id)
+            matn += f"✅  {nomi} — {len(natija)} ta yozuv\n"
         except Exception as e:
-            matn += f"❌ {nomi} — xato: {e}\n"
+            qisqa = str(e)[:80]
+            matn += f"❌  {nomi} — {qisqa}\n"
 
-    await message.answer(matn)
+    await kutish.edit_text(matn)
 
 
-async def asosiy_menyu_callback(callback: CallbackQuery):
-    await callback.message.edit_text("Asosiy menyu:", reply_markup=kb.asosiy_menyu())
+async def notanish_xabar(message: Message):
+    """Menyudan tashqari yozilgan matnlar uchun."""
+    await message.answer(
+        "Quyidagi menyudan tanlang 👇",
+        reply_markup=kb.asosiy_menyu(),
+    )
 
 
 async def main():
-    bot = Bot(token=config.BOT_TOKEN, default=DefaultBotProperties())
+    bot = Bot(
+        token=config.BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     dp = Dispatcher(storage=MemoryStorage())
+
+    dp.message.register(diagnostika, F.text == "/tekshir")
 
     dp.include_router(registration.router)
     dp.include_router(davomat.router)
@@ -60,7 +77,8 @@ async def main():
     dp.include_router(balansim.router)
     dp.include_router(bugungi.router)
 
-    dp.message.register(diagnostika, F.text == "/tekshir")
+    # Eng oxirida: hech qaysi handlerga tushmagan matnlar
+    dp.message.register(notanish_xabar, F.text)
 
     scheduler = AsyncIOScheduler()
     sch.sozlash(scheduler, bot)

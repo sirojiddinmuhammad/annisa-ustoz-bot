@@ -1,6 +1,5 @@
 # handlers/dars_qoldirish.py
-# Ustoz darsni oldindan "qoldirilgan" deb belgilashi — Darslar grafigiga
-# yoziladi, Davomatga tegilmaydi (pul ketmaydi).
+# Dars qoldirish — Darslar grafigiga yoziladi, Davomatga tegilmaydi.
 
 from datetime import date
 
@@ -12,28 +11,31 @@ import config
 import notion_service as ns
 import keyboards as kb
 from states import DarsQoldirish
-from utils import sana_ozbekcha, yaqin_kunlar, HAFTA_KUNLARI, markdown_himoya
+from utils import sana_ozbekcha, yaqin_kunlar, HAFTA_KUNLARI, html_himoya, CHIZIQ
 
 router = Router()
 
 
-@router.callback_query(F.data == "menu_dars_qoldirish")
-async def boshlash(callback: CallbackQuery, state: FSMContext):
-    ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
+@router.message(F.text == kb.BTN_DARS_QOLDIRISH)
+async def boshlash(message: Message, state: FSMContext):
+    await state.clear()
+    ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
     if not ustoz:
-        await callback.message.answer("Siz ro'yxatdan o'tmagansiz. /start ni bosing.")
+        await message.answer("Siz hali ro'yxatdan o'tmagansiz.\n/start ni bosing.")
         return
 
     guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=True)
     if not guruhlar:
-        await callback.message.edit_text("Sizda hozircha faol guruh yo'q.")
+        await message.answer("📭  Sizda hozircha faol guruh yo'q.")
         return
 
     guruh_royxati = [{"id": g["id"], "nomi": ns.get_title(g, "Guruh nomi")} for g in guruhlar]
     await state.update_data(guruhlar=guruh_royxati)
     await state.set_state(DarsQoldirish.guruh_tanlash)
-    await callback.message.edit_text(
-        "Qaysi guruhning darsi qoldiriladi?",
+    await message.answer(
+        f"<b>🚫  Dars qoldirish</b>\n"
+        f"{CHIZIQ}\n"
+        f"Qaysi guruhning darsi qoldiriladi?",
         reply_markup=kb.guruhlar_royxati(guruh_royxati, "dq"),
     )
 
@@ -45,15 +47,18 @@ async def guruh_tanlandi(callback: CallbackQuery, state: FSMContext):
     guruh = data["guruhlar"][idx]
     guruh_page = await ns.get_page(guruh["id"])
 
-    dars_kunlari_nomlari = ns.get_multi_select(guruh_page, "Dars kunlari")
-    dars_kunlari_idx = [HAFTA_KUNLARI.index(n) for n in dars_kunlari_nomlari if n in HAFTA_KUNLARI]
-    sanalar = yaqin_kunlar(dars_kunlari_idx or list(range(7)), soni=4)
+    kunlari = [HAFTA_KUNLARI.index(n) for n in ns.get_multi_select(guruh_page, "Dars kunlari")
+               if n in HAFTA_KUNLARI]
+    sanalar = yaqin_kunlar(kunlari or list(range(7)), soni=4)
 
     sana_royxati = [{"label": sana_ozbekcha(s), "value": s.isoformat()} for s in sanalar]
     await state.update_data(tanlangan_guruh=guruh, sanalar=sana_royxati)
     await state.set_state(DarsQoldirish.sana_tanlash)
     await callback.message.edit_text(
-        f"Guruh: {guruh['nomi']}\nQaysi kun?",
+        f"<b>🚫  Dars qoldirish</b>\n"
+        f"{CHIZIQ}\n"
+        f"📚  {html_himoya(guruh['nomi'])}\n\n"
+        f"Qaysi kun?",
         reply_markup=kb.sanalar_royxati(sana_royxati, "dq"),
     )
 
@@ -63,10 +68,16 @@ async def sana_tanlandi(callback: CallbackQuery, state: FSMContext):
     idx = int(callback.data.split(":")[1])
     data = await state.get_data()
     sana = data["sanalar"][idx]["value"]
+    guruh = data["tanlangan_guruh"]
     await state.update_data(tanlangan_sana=sana)
     await state.set_state(DarsQoldirish.sabab_tanlash)
     await callback.message.edit_text(
-        "Sababi?", reply_markup=kb.sabablar_royxati("dq")
+        f"<b>🚫  Dars qoldirish</b>\n"
+        f"{CHIZIQ}\n"
+        f"📚  {html_himoya(guruh['nomi'])}\n"
+        f"📅  {sana_ozbekcha(date.fromisoformat(sana))}\n\n"
+        f"Sababi nima?",
+        reply_markup=kb.sabablar_royxati("dq"),
     )
 
 
@@ -77,7 +88,11 @@ async def sabab_tanlandi(callback: CallbackQuery, state: FSMContext):
     await state.update_data(tanlangan_sabab=sabab)
     await state.set_state(DarsQoldirish.izoh_kutilmoqda)
     await callback.message.edit_text(
-        f"Sabab: {sabab}\n\nQisqacha izoh yozing (yoki \"-\" deb yuboring):"
+        f"<b>🚫  Dars qoldirish</b>\n"
+        f"{CHIZIQ}\n"
+        f"Sabab: <b>{sabab}</b>\n\n"
+        f"Qisqacha izoh yozing.\n"
+        f"Izoh kerak bo'lmasa <code>-</code> yuboring."
     )
 
 
@@ -104,18 +119,24 @@ async def izoh_qabul_qilish(message: Message, state: FSMContext, bot: Bot):
 
     await state.clear()
     await message.answer(
-        f"🚫 {guruh['nomi']} guruhining {sana_ozbekcha(date.fromisoformat(sana))} "
-        f"kungi darsi qoldirildi.\nSabab: {sabab}"
+        f"<b>🚫  Dars qoldirildi</b>\n"
+        f"{CHIZIQ}\n"
+        f"📚  {html_himoya(guruh['nomi'])}\n"
+        f"📅  {sana_ozbekcha(date.fromisoformat(sana))}\n"
+        f"📝  {sabab}"
     )
-    await bot.send_message(
-        config.ADMIN_ID,
-        f"🚫 *Dars qoldirildi*\n\n"
-        f"Ustoz: {markdown_himoya(ustoz_ismi)}\n"
-        f"Guruh: {markdown_himoya(guruh['nomi'])}\n"
-        f"Sana: {markdown_himoya(sana_ozbekcha(date.fromisoformat(sana)))}\n"
-        f"Sabab: {markdown_himoya(sabab)}",
-        parse_mode="MarkdownV2",
+
+    admin_matn = (
+        f"<b>🚫  Dars qoldirildi</b>\n"
+        f"{CHIZIQ}\n"
+        f"Ustoz: {html_himoya(ustoz_ismi)}\n"
+        f"Guruh: {html_himoya(guruh['nomi'])}\n"
+        f"Sana: {sana_ozbekcha(date.fromisoformat(sana))}\n"
+        f"Sabab: {sabab}"
     )
+    if izoh:
+        admin_matn += f"\nIzoh: {html_himoya(izoh)}"
+    await bot.send_message(config.ADMIN_ID, admin_matn)
 
 
 @router.callback_query(F.data == "dq_hammasi")
@@ -124,6 +145,7 @@ async def barcha_darslarni_qoldirish(callback: CallbackQuery, bot: Bot):
     if not ustoz:
         return
 
+    await callback.answer("Bajarilmoqda...")
     bugun = date.today().isoformat()
     guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=True)
 
@@ -131,23 +153,31 @@ async def barcha_darslarni_qoldirish(callback: CallbackQuery, bot: Bot):
     for g in guruhlar:
         grafik = await ns.get_grafik_yozuv(g["id"], bugun)
         if grafik and ns.get_select(grafik, "Holat") == config.GRAFIK_DARS_OTILDI:
-            continue  # davomat allaqachon kiritilgan — tegilmaydi
+            continue
         nomi = ns.get_title(g, "Guruh nomi")
         if grafik:
-            await ns.grafik_yangilash(grafik["id"], config.GRAFIK_DARS_QOLDIRILDI, sabab=config.SABAB_BOSHQA)
+            await ns.grafik_yangilash(grafik["id"], config.GRAFIK_DARS_QOLDIRILDI,
+                                       sabab=config.SABAB_BOSHQA)
         else:
-            await ns.grafik_yaratish(g["id"], bugun, config.GRAFIK_DARS_QOLDIRILDI, sabab=config.SABAB_BOSHQA)
+            await ns.grafik_yaratish(g["id"], bugun, config.GRAFIK_DARS_QOLDIRILDI,
+                                      sabab=config.SABAB_BOSHQA)
         qoldirilgan.append(nomi)
 
     ustoz_ismi = ns.get_title(ustoz, "Ism")
     if qoldirilgan:
-        royxat = "\n".join(f"— {n}" for n in qoldirilgan)
-        await callback.message.answer(f"🚫 Bugungi barcha darslar qoldirildi:\n{royxat}")
+        royxat = "\n".join(f"•  {html_himoya(n)}" for n in qoldirilgan)
+        await callback.message.answer(
+            f"<b>🚫  Bugungi barcha darslar qoldirildi</b>\n"
+            f"{CHIZIQ}\n{royxat}"
+        )
         await bot.send_message(
             config.ADMIN_ID,
-            f"🚫 {markdown_himoya(ustoz_ismi)} bugungi barcha darslarini qoldirdi:\n"
-            + markdown_himoya(royxat),
-            parse_mode="MarkdownV2",
+            f"<b>🚫  Barcha darslar qoldirildi</b>\n"
+            f"{CHIZIQ}\n"
+            f"Ustoz: {html_himoya(ustoz_ismi)}\n"
+            f"{royxat}"
         )
     else:
-        await callback.message.answer("Qoldiriladigan dars topilmadi (hammasi allaqachon kiritilgan).")
+        await callback.message.answer(
+            "Qoldiriladigan dars topilmadi — hammasiga davomat kiritilgan."
+        )
