@@ -11,7 +11,8 @@ from apscheduler.triggers.cron import CronTrigger
 import config
 import notion_service as ns
 import keyboards as kb
-from utils import HAFTA_KUNLARI, sana_ozbekcha, html_himoya, CHIZIQ
+from utils import (sana_ozbekcha, html_himoya, CHIZIQ,
+                   dars_kunlari_raqamga, vaqt_tartibi)
 
 
 def sozlash(scheduler: AsyncIOScheduler, bot: Bot):
@@ -59,7 +60,7 @@ async def ertalabki_eslatma(bot: Bot):
         davomatli_guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=True)
         bugungi = []
         for g in davomatli_guruhlar:
-            kunlari = [HAFTA_KUNLARI.index(n) for n in ns.get_multi_select(g, "Dars kunlari") if n in HAFTA_KUNLARI]
+            kunlari = dars_kunlari_raqamga(ns.get_multi_select(g, "Dars kunlari"))
             if bugungi_kun_idx in kunlari:
                 bugungi.append(g)
                 grafik = await ns.get_grafik_yozuv(g["id"], bugun_iso)
@@ -74,8 +75,13 @@ async def ertalabki_eslatma(bot: Bot):
             f"{sana_ozbekcha(bugun)}\n"
             f"{CHIZIQ}\n"
         )
+        bugungi.sort(key=lambda x: vaqt_tartibi(ns.get_select(x, "Dars vaqti")))
         for g in bugungi:
-            matn += f"📚  <b>{html_himoya(ns.get_title(g, 'Guruh nomi'))}</b>\n"
+            vaqt = ns.get_select(g, "Dars vaqti") or "vaqti belgilanmagan"
+            matn += (
+                f"\n🕐  <b>{html_himoya(vaqt)}</b>\n"
+                f"📚  {html_himoya(ns.get_title(g, 'Guruh nomi'))}\n"
+            )
         matn += f"{CHIZIQ}\nDars tugagach davomat kiriting 👇"
 
         belgilanmagan = await ns.belgilanmagan_darslar()

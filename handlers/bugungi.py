@@ -5,17 +5,32 @@ from datetime import date
 
 from aiogram import Router, F
 from aiogram.types import Message
+from aiogram.fsm.context import FSMContext
 
 import config
 import notion_service as ns
 import keyboards as kb
-from utils import HAFTA_KUNLARI, sana_ozbekcha, html_himoya, CHIZIQ
+from utils import (sana_ozbekcha, html_himoya, CHIZIQ,
+                   dars_kunlari_raqamga, vaqt_tartibi)
 
 router = Router()
 
+HOLAT_BELGISI = {
+    config.GRAFIK_DARS_OTILDI: "✅",
+    config.GRAFIK_DARS_QOLDIRILDI: "🚫",
+    config.GRAFIK_BELGILANMAGAN: "⏳",
+}
+
+HOLAT_MATNI = {
+    config.GRAFIK_DARS_OTILDI: "davomat kiritilgan",
+    config.GRAFIK_DARS_QOLDIRILDI: "dars qoldirilgan",
+    config.GRAFIK_BELGILANMAGAN: "kutilmoqda",
+}
+
 
 @router.message(F.text == kb.BTN_BUGUNGI)
-async def bugungi_darslar(message: Message):
+async def bugungi_darslar(message: Message, state: FSMContext):
+    await state.clear()
     ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
     if not ustoz:
         await message.answer("Siz hali ro'yxatdan o'tmagansiz.\n/start ni bosing.")
@@ -30,32 +45,42 @@ async def bugungi_darslar(message: Message):
     guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=True)
     bugungi = []
     for g in guruhlar:
-        kunlari = [HAFTA_KUNLARI.index(n) for n in ns.get_multi_select(g, "Dars kunlari")
-                   if n in HAFTA_KUNLARI]
+        kunlari = dars_kunlari_raqamga(ns.get_multi_select(g, "Dars kunlari"))
         if kun_idx in kunlari:
             bugungi.append(g)
 
+    # Dars vaqti bo'yicha saralaymiz
+    bugungi.sort(key=lambda g: vaqt_tartibi(ns.get_select(g, "Dars vaqti")))
+
     matn = (
         f"<b>📅  Bugungi darslar</b>\n"
-        f"{sana_ozbekcha(bugun)}\n"
+        f"<i>{sana_ozbekcha(bugun)}</i>\n"
         f"{CHIZIQ}\n"
     )
 
     kutilmoqda = 0
     if not bugungi:
-        matn += "🌿  Bugun darsingiz yo'q. Yaxshi dam oling!"
+        matn += "🌿  Bugun darsingiz yo'q.\nYaxshi dam oling!"
     else:
         for g in bugungi:
             nomi = ns.get_title(g, "Guruh nomi")
+            vaqt = ns.get_select(g, "Dars vaqti") or "vaqti belgilanmagan"
             grafik = await ns.get_grafik_yozuv(g["id"], bugun_iso)
             holat = ns.get_select(grafik, "Holat") if grafik else config.GRAFIK_BELGILANMAGAN
-            belgi = {
-                config.GRAFIK_DARS_OTILDI: "✅",
-                config.GRAFIK_DARS_QOLDIRILDI: "🚫",
-            }.get(holat, "⏳")
-            matn += f"{belgi}  <b>{html_himoya(nomi)}</b>\n     {holat}\n"
+            belgi = HOLAT_BELGISI.get(holat, "⏳")
+            izoh = HOLAT_MATNI.get(holat, holat)
+
+            matn += (
+                f"\n🕐  <b>{html_himoya(vaqt)}</b>\n"
+                f"📚  {html_himoya(nomi)}\n"
+                f"{belgi}  <i>{izoh}</i>\n"
+            )
             if holat == config.GRAFIK_BELGILANMAGAN:
                 kutilmoqda += 1
+
+        matn += f"{CHIZIQ}\n👥  Jami: {len(bugungi)} ta dars"
+        if kutilmoqda:
+            matn += f"  ·  ⏳ {kutilmoqda} ta kutilmoqda"
 
     belgilanmagan = await ns.belgilanmagan_darslar()
     guruh_idlari = {g["id"] for g in guruhlar}
@@ -65,9 +90,9 @@ async def bugungi_darslar(message: Message):
     ]
     if ozimizniki:
         matn += (
-            f"{CHIZIQ}\n"
+            f"\n{CHIZIQ}\n"
             f"⚠️  <b>Belgilanmagan darslar: {len(ozimizniki)} ta</b>\n"
-            f"Oxirgi {config.BELGILANMAGAN_TEKSHIRUV_KUN} kun ichida"
+            f"<i>Oxirgi {config.BELGILANMAGAN_TEKSHIRUV_KUN} kun ichida</i>"
         )
 
     markup = kb.barcha_darslarni_qoldirish() if kutilmoqda > 1 else None

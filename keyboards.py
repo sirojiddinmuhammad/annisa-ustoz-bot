@@ -21,6 +21,12 @@ BTN_TATIL = "🌴 Ta'til olish"
 BTN_BUGUNGI = "📅 Bugungi darslar"
 BTN_BALANS = "💰 Balansim"
 
+# Matn kutayotgan handlerlar shu ro'yxatdagi matnlarni e'tiborsiz qoldirishi kerak,
+# aks holda menyu tugmasi "sana" yoki "izoh" deb qabul qilinadi.
+MENYU_TUGMALARI = [
+    BTN_DAVOMAT, BTN_DARS_QOLDIRISH, BTN_TATIL, BTN_BUGUNGI, BTN_BALANS,
+]
+
 
 def asosiy_menyu() -> ReplyKeyboardMarkup:
     """Pastda doimiy turadigan menyu."""
@@ -39,7 +45,11 @@ def asosiy_menyu() -> ReplyKeyboardMarkup:
 def guruhlar_royxati(guruhlar: list[dict], prefix: str) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     for i, g in enumerate(guruhlar):
-        kb.button(text=f"📚 {g['nomi']}", callback_data=f"{prefix}_g:{i}")
+        vaqt = g.get("vaqt")
+        matn = f"📚 {g['nomi']}"
+        if vaqt:
+            matn += f"  ·  {vaqt}"
+        kb.button(text=matn, callback_data=f"{prefix}_g:{i}")
     kb.adjust(1)
     return kb.as_markup()
 

@@ -11,7 +11,8 @@ import config
 import notion_service as ns
 import keyboards as kb
 from states import DarsQoldirish
-from utils import sana_ozbekcha, yaqin_kunlar, HAFTA_KUNLARI, html_himoya, CHIZIQ
+from utils import (sana_ozbekcha, yaqin_kunlar, html_himoya, CHIZIQ,
+                   dars_kunlari_raqamga)
 
 router = Router()
 
@@ -29,7 +30,11 @@ async def boshlash(message: Message, state: FSMContext):
         await message.answer("📭  Sizda hozircha faol guruh yo'q.")
         return
 
-    guruh_royxati = [{"id": g["id"], "nomi": ns.get_title(g, "Guruh nomi")} for g in guruhlar]
+    guruh_royxati = [
+        {"id": g["id"], "nomi": ns.get_title(g, "Guruh nomi"),
+         "vaqt": ns.get_select(g, "Dars vaqti")}
+        for g in guruhlar
+    ]
     await state.update_data(guruhlar=guruh_royxati)
     await state.set_state(DarsQoldirish.guruh_tanlash)
     await message.answer(
@@ -47,8 +52,7 @@ async def guruh_tanlandi(callback: CallbackQuery, state: FSMContext):
     guruh = data["guruhlar"][idx]
     guruh_page = await ns.get_page(guruh["id"])
 
-    kunlari = [HAFTA_KUNLARI.index(n) for n in ns.get_multi_select(guruh_page, "Dars kunlari")
-               if n in HAFTA_KUNLARI]
+    kunlari = dars_kunlari_raqamga(ns.get_multi_select(guruh_page, "Dars kunlari"))
     sanalar = yaqin_kunlar(kunlari or list(range(7)), soni=4)
 
     sana_royxati = [{"label": sana_ozbekcha(s), "value": s.isoformat()} for s in sanalar]
@@ -96,7 +100,7 @@ async def sabab_tanlandi(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@router.message(DarsQoldirish.izoh_kutilmoqda)
+@router.message(DarsQoldirish.izoh_kutilmoqda, ~F.text.in_(kb.MENYU_TUGMALARI))
 async def izoh_qabul_qilish(message: Message, state: FSMContext, bot: Bot):
     izoh = message.text.strip()
     if izoh == "-":

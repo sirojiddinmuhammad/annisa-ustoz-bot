@@ -49,6 +49,30 @@ def yaqin_kunlar(dars_kunlari: list[int], soni: int = 4) -> list[date]:
     return natija
 
 
+def dars_kunlari_raqamga(kun_nomlari: list[str]) -> list[int]:
+    """Notiondagi 'Dars kunlari' nomlarini hafta kuni raqamlariga aylantiradi.
+    'Harkuni' — haftaning barcha kunlari degani.
+    """
+    if "Harkuni" in kun_nomlari:
+        return list(range(7))
+    return [HAFTA_KUNLARI.index(n) for n in kun_nomlari if n in HAFTA_KUNLARI]
+
+
+def vaqt_tartibi(vaqt: str | None) -> tuple:
+    """Guruhlarni dars vaqti bo'yicha saralash uchun kalit.
+    Aniq vaqt (21:00) oldinda, 'Kelishilgan' va bo'sh qiymat oxirida turadi.
+    """
+    if not vaqt:
+        return (2, "")
+    qismlar = vaqt.split(":")
+    if len(qismlar) == 2 and qismlar[0].strip().isdigit():
+        try:
+            return (0, f"{int(qismlar[0]):02d}:{qismlar[1].strip()}")
+        except ValueError:
+            pass
+    return (1, vaqt)
+
+
 def summa_format(summa: float) -> str:
     return f"{int(round(summa)):,}".replace(",", " ")
 
