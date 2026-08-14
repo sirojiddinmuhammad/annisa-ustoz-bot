@@ -12,7 +12,7 @@ from aiogram.types import (
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import config
-from utils import sana_ozbekcha
+from utils import sana_ozbekcha, bugun
 
 # --- Pastdagi doimiy menyu tugmalari (matn sifatida keladi) ---
 BTN_DAVOMAT = "📋 Davomat"
@@ -126,9 +126,9 @@ def tatil_boshlanish_sanalari() -> tuple[InlineKeyboardMarkup, list[str]]:
     """7 kunlik ro'yxat. Qaytaradi: (klaviatura, sanalar_iso_royxati)"""
     kb = InlineKeyboardBuilder()
     sanalar = []
-    bugun = date.today()
+    bugun_sana = bugun()
     for i in range(7):
-        d = bugun + timedelta(days=i)
+        d = bugun_sana + timedelta(days=i)
         sanalar.append(d.isoformat())
         if i == 0:
             label = f"Bugun · {d.day}-{_oy(d)}"

@@ -1,7 +1,23 @@
 # utils.py
 # Kichik yordamchi funksiyalar.
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
+
+TASHKENT_TZ = ZoneInfo("Asia/Tashkent")
+
+def bugun() -> date:
+    """Toshkent vaqti bo'yicha bugungi sana.
+    DIQQAT: date.today() ishlatilmasin — Railway serveri UTC da ishlaydi,
+    shuning uchun Toshkentda 00:00-05:00 oralig'ida bir kun orqada qoladi.
+    """
+    return datetime.now(TASHKENT_TZ).date()
+
+
+def hozir() -> datetime:
+    """Toshkent vaqti bo'yicha hozirgi payt."""
+    return datetime.now(TASHKENT_TZ)
+
 
 OYLAR = [
     "yanvar", "fevral", "mart", "aprel", "may", "iyun",
@@ -39,7 +55,7 @@ def yaqin_kunlar(dars_kunlari: list[int], soni: int = 4) -> list[date]:
     Bugundan boshlab orqaga qarab eng yaqin `soni` ta mos sanani qaytaradi.
     """
     natija = []
-    kun = date.today()
+    kun = bugun()
     urinish = 0
     while len(natija) < soni and urinish < 60:
         if kun.weekday() in dars_kunlari:
@@ -95,3 +111,35 @@ def muddat_sanalari(boshlanish: date) -> list[dict]:
         {"label": "2 hafta", "kun": 13},
         {"label": "1 oy", "kun": 30},
     ]
+
+
+def belgilanmagan_royxat_matni(yozuvlar: list[dict], ns_modul, cheklov: int = 8) -> str:
+    """Belgilanmagan darslar ro'yxatini matn ko'rinishida tayyorlaydi.
+    yozuvlar — Darslar grafigi sahifalari.
+    """
+    qatorlar = []
+    # Eng yangi sanadan boshlab
+    tartiblangan = sorted(
+        yozuvlar,
+        key=lambda b: (ns_modul.get_date_start(b, "Sana") or ""),
+        reverse=True,
+    )
+    for b in tartiblangan[:cheklov]:
+        nomi = ns_modul.get_title(b, "Nomi")
+        sana_iso = ns_modul.get_date_start(b, "Sana")
+        if sana_iso:
+            d = date.fromisoformat(sana_iso[:10])
+            sana_matni = f"{d.day}-{OYLAR[d.month - 1]}"
+        else:
+            sana_matni = "sanasiz"
+        # Nom "Guruh — 2026-08-13" ko'rinishida bo'lsa, guruh qismini ajratamiz
+        guruh_nomi = nomi.split(" — ")[0] if " — " in nomi else nomi
+        if not guruh_nomi:
+            guruh_nomi = "(nomsiz guruh)"
+        qatorlar.append(f"     • {sana_matni} — {html_himoya(guruh_nomi)}")
+
+    matn = "\n".join(qatorlar)
+    qolgan = len(yozuvlar) - cheklov
+    if qolgan > 0:
+        matn += f"\n     <i>...va yana {qolgan} ta</i>"
+    return matn

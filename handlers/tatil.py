@@ -12,7 +12,7 @@ import config
 import notion_service as ns
 import keyboards as kb
 from states import Tatil
-from utils import sana_ozbekcha, sana_qisqa, html_himoya, CHIZIQ
+from utils import sana_ozbekcha, sana_qisqa, html_himoya, CHIZIQ, bugun
 
 router = Router()
 
@@ -38,7 +38,7 @@ async def tatil_boshlash(message: Message, state: FSMContext):
         await message.answer("Siz hali ro'yxatdan o'tmagansiz.\n/start ni bosing.")
         return
 
-    if ns.ustoz_tatilda_mi(ustoz, date.today()):
+    if ns.ustoz_tatilda_mi(ustoz, bugun()):
         boshlanish = ns.get_date_start(ustoz, "Ta'til boshlanishi")
         tugash = ns.get_date_start(ustoz, "Ta'til tugashi")
         await message.answer(
@@ -167,9 +167,9 @@ async def tatil_tasdiqlash(callback: CallbackQuery, state: FSMContext, bot: Bot)
     ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
     await ns.set_ustoz_tatil(ustoz["id"], boshlanish, tugash)
 
-    bugun = date.today()
-    if date.fromisoformat(boshlanish) <= bugun <= date.fromisoformat(tugash):
-        await _bugungi_darslarni_qoldirish(ustoz["id"], bugun.isoformat())
+    bugun_sana = bugun()
+    if date.fromisoformat(boshlanish) <= bugun_sana <= date.fromisoformat(tugash):
+        await _bugungi_darslarni_qoldirish(ustoz["id"], bugun_sana.isoformat())
 
     ustoz_ismi = ns.get_title(ustoz, "Ism")
     await state.clear()

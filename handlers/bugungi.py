@@ -11,7 +11,8 @@ import config
 import notion_service as ns
 import keyboards as kb
 from utils import (sana_ozbekcha, html_himoya, CHIZIQ,
-                   dars_kunlari_raqamga, vaqt_tartibi)
+                   dars_kunlari_raqamga, vaqt_tartibi, bugun,
+                   belgilanmagan_royxat_matni)
 
 router = Router()
 
@@ -38,9 +39,9 @@ async def bugungi_darslar(message: Message, state: FSMContext):
 
     kutish = await message.answer("⏳  Yuklanmoqda...")
 
-    bugun = date.today()
-    bugun_iso = bugun.isoformat()
-    kun_idx = bugun.weekday()
+    bugun_sana = bugun()
+    bugun_iso = bugun_sana.isoformat()
+    kun_idx = bugun_sana.weekday()
 
     guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=True)
     bugungi = []
@@ -54,7 +55,7 @@ async def bugungi_darslar(message: Message, state: FSMContext):
 
     matn = (
         f"<b>📅  Bugungi darslar</b>\n"
-        f"<i>{sana_ozbekcha(bugun)}</i>\n"
+        f"<i>{sana_ozbekcha(bugun_sana)}</i>\n"
         f"{CHIZIQ}\n"
     )
 
@@ -92,7 +93,9 @@ async def bugungi_darslar(message: Message, state: FSMContext):
         matn += (
             f"\n{CHIZIQ}\n"
             f"⚠️  <b>Belgilanmagan darslar: {len(ozimizniki)} ta</b>\n"
-            f"<i>Oxirgi {config.BELGILANMAGAN_TEKSHIRUV_KUN} kun ichida</i>"
+            f"<i>Oxirgi {config.BELGILANMAGAN_TEKSHIRUV_KUN} kun ichida</i>\n"
+            + belgilanmagan_royxat_matni(ozimizniki, ns)
+            + "\n\n<i>Davomat bo'limidan o'sha kunni tanlab kiriting.</i>"
         )
 
     markup = kb.barcha_darslarni_qoldirish() if kutilmoqda > 1 else None

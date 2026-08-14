@@ -5,6 +5,7 @@
 # bu Notiondagi Sarflangan/Ustoz ulushi formulalari bilan bir xil natija beradi.
 
 import config
+from utils import bugun
 import notion_service as ns
 
 
@@ -60,8 +61,8 @@ async def ustoz_balansi_hisobla(ustoz_page: dict) -> dict:
 
 async def _shu_oy_daromadi(ustoz_id: str) -> float:
     import datetime as dt
-    bugun = dt.date.today()
-    oy_boshi = bugun.replace(day=1).isoformat()
+    bugun_sana = bugun()
+    oy_boshi = bugun_sana.replace(day=1).isoformat()
 
     guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz_id, davomatli_faqat=False)
     jami = 0.0
@@ -90,7 +91,7 @@ async def _xom_malumotdan_hisobla(ustoz_page: dict) -> dict:
     jami_ishlab_topgan = 0.0
     shu_oy = 0.0
     import datetime as dt
-    oy_boshi = dt.date.today().replace(day=1).isoformat()
+    oy_boshi = bugun().replace(day=1).isoformat()
 
     for guruh in guruhlar:
         yozilishlar = await ns.get_guruh_yozilishlari(

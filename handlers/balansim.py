@@ -4,17 +4,19 @@ from datetime import date
 
 from aiogram import Router, F
 from aiogram.types import Message
+from aiogram.fsm.context import FSMContext
 
 import notion_service as ns
 import money_service as ms
 import keyboards as kb
-from utils import summa_format, OYLAR, CHIZIQ
+from utils import summa_format, OYLAR, CHIZIQ, bugun
 
 router = Router()
 
 
 @router.message(F.text == kb.BTN_BALANS)
-async def balansim(message: Message):
+async def balansim(message: Message, state: FSMContext):
+    await state.clear()
     ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
     if not ustoz:
         await message.answer("Siz hali ro'yxatdan o'tmagansiz.\n/start ni bosing.")
@@ -22,7 +24,7 @@ async def balansim(message: Message):
 
     kutish = await message.answer("⏳  Hisoblanmoqda...")
     natija = await ms.ustoz_balansi_hisobla(ustoz)
-    oy_nomi = OYLAR[date.today().month - 1]
+    oy_nomi = OYLAR[bugun().month - 1]
 
     balans = natija["balans"]
     belgi = "🟢" if balans >= 0 else "🔴"

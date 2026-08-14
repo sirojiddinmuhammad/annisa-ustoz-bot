@@ -12,7 +12,8 @@ import config
 import notion_service as ns
 import keyboards as kb
 from utils import (sana_ozbekcha, html_himoya, CHIZIQ,
-                   dars_kunlari_raqamga, vaqt_tartibi)
+                   dars_kunlari_raqamga, vaqt_tartibi, bugun,
+                   belgilanmagan_royxat_matni)
 
 
 def sozlash(scheduler: AsyncIOScheduler, bot: Bot):
@@ -42,9 +43,9 @@ def sozlash(scheduler: AsyncIOScheduler, bot: Bot):
 async def ertalabki_eslatma(bot: Bot):
     """Har kuni 02:20: bugungi darslar uchun Belgilanmagan ochadi,
     ustozlarga eslatma yuboradi, oylik hisobni tekshiradi."""
-    bugun = date.today()
-    bugun_iso = bugun.isoformat()
-    bugungi_kun_idx = bugun.weekday()
+    bugun_sana = bugun()
+    bugun_iso = bugun_sana.isoformat()
+    bugungi_kun_idx = bugun_sana.weekday()
 
     ustozlar = await ns.get_barcha_ustozlar_faol()
 
@@ -54,7 +55,7 @@ async def ertalabki_eslatma(bot: Bot):
             continue
         tg_id = int(tg_id)
 
-        if ns.ustoz_tatilda_mi(ustoz, bugun):
+        if ns.ustoz_tatilda_mi(ustoz, bugun_sana):
             continue  # ta'tildagi ustozga eslatma yuborilmaydi
 
         davomatli_guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=True)
@@ -70,35 +71,43 @@ async def ertalabki_eslatma(bot: Bot):
                         guruh_nomi=ns.get_title(g, "Guruh nomi"),
                     )
 
-        if not bugungi:
-            continue
-
-        matn = (
-            f"<b>📅  Bugungi darslar</b>\n"
-            f"{sana_ozbekcha(bugun)}\n"
-            f"{CHIZIQ}\n"
-        )
-        bugungi.sort(key=lambda x: vaqt_tartibi(ns.get_select(x, "Dars vaqti")))
-        for g in bugungi:
-            vaqt = ns.get_select(g, "Dars vaqti") or "vaqti belgilanmagan"
-            matn += (
-                f"\n🕐  <b>{html_himoya(vaqt)}</b>\n"
-                f"📚  {html_himoya(ns.get_title(g, 'Guruh nomi'))}\n"
-            )
-        matn += f"{CHIZIQ}\nDars tugagach davomat kiriting 👇"
-
+        # Belgilanmagan darslarni oldindan olamiz — bugun darsi bo'lmasa ham
+        # ogohlantirish yuborilishi kerak.
         belgilanmagan = await ns.belgilanmagan_darslar()
         guruh_idlari = {g["id"] for g in davomatli_guruhlar}
         ozimizniki = [
             b for b in belgilanmagan
-            if ns.get_relation_ids(b, "Guruh") and ns.get_relation_ids(b, "Guruh")[0] in guruh_idlari
+            if ns.get_relation_ids(b, "Guruh")
+            and ns.get_relation_ids(b, "Guruh")[0] in guruh_idlari
+            and (ns.get_date_start(b, "Sana") or "")[:10] != bugun_iso
         ]
+
+        if not bugungi and not ozimizniki:
+            continue
+
+        matn = (
+            f"<b>📅  Bugungi darslar</b>\n"
+            f"<i>{sana_ozbekcha(bugun_sana)}</i>\n"
+            f"{CHIZIQ}\n"
+        )
+        if bugungi:
+            bugungi.sort(key=lambda x: vaqt_tartibi(ns.get_select(x, "Dars vaqti")))
+            for g in bugungi:
+                vaqt = ns.get_select(g, "Dars vaqti") or "vaqti belgilanmagan"
+                matn += (
+                    f"\n🕐  <b>{html_himoya(vaqt)}</b>\n"
+                    f"📚  {html_himoya(ns.get_title(g, 'Guruh nomi'))}\n"
+                )
+            matn += f"{CHIZIQ}\nDars tugagach davomat kiriting 👇"
+        else:
+            matn += "🌿  Bugun darsingiz yo'q."
+
         if ozimizniki:
             matn = (
-                f"<b>⚠️  Diqqat</b>\n"
+                f"<b>⚠️  Belgilanmagan darslar: {len(ozimizniki)} ta</b>\n"
                 f"{CHIZIQ}\n"
-                f"Oxirgi {config.BELGILANMAGAN_TEKSHIRUV_KUN} kunda "
-                f"<b>{len(ozimizniki)} ta</b> dars belgilanmagan.\n\n"
+                + belgilanmagan_royxat_matni(ozimizniki, ns)
+                + "\n\n<i>Davomat bo'limidan o'sha kunni tanlab kiriting.</i>\n\n"
             ) + matn
 
         try:
@@ -106,10 +115,10 @@ async def ertalabki_eslatma(bot: Bot):
         except Exception:
             pass  # ustoz botni bloklagan bo'lishi mumkin
 
-    await _oylik_hisob_tekshiruvi(bugun)
+    await _oylik_hisob_tekshiruvi(bugun_sana)
 
 
-async def _oylik_hisob_tekshiruvi(bugun: date):
+async def _oylik_hisob_tekshiruvi(bugun_sana: date):
     """Davomatsiz guruhlar uchun oylik to'lovni hisoblaydi.
     Agar ustoz shu kuni ta'tilda bo'lsa, sana 1 kunga suriladi (doimiy)."""
     guruhlar_filter = {"property": "Davomat kerak emas", "checkbox": {"equals": True}}
@@ -123,7 +132,7 @@ async def _oylik_hisob_tekshiruvi(bugun: date):
         ustoz_tatilda = False
         if ustoz_ids:
             ustoz = await ns.get_page(ustoz_ids[0])
-            ustoz_tatilda = ns.ustoz_tatilda_mi(ustoz, bugun)
+            ustoz_tatilda = ns.ustoz_tatilda_mi(ustoz, bugun_sana)
 
         yozilishlar = await ns.get_guruh_yozilishlari(guruh["id"], holatlar=[config.YOZILISH_OQIYABDI])
         for y in yozilishlar:
@@ -132,11 +141,11 @@ async def _oylik_hisob_tekshiruvi(bugun: date):
                 continue
             boshlagan_sana = date.fromisoformat(boshlagan[:10])
 
-            if boshlagan_sana.day != bugun.day:
+            if boshlagan_sana.day != bugun_sana.day:
                 continue
 
             # Shu oyda allaqachon "Oylik hisob" yozilganmi?
-            oy_boshi = bugun.replace(day=1).isoformat()
+            oy_boshi = bugun_sana.replace(day=1).isoformat()
             filter_ = {
                 "and": [
                     {"property": "Yozilish", "relation": {"contains": y["id"]}},
@@ -159,13 +168,13 @@ async def _oylik_hisob_tekshiruvi(bugun: date):
             guruh_nomi = ns.get_title(guruh, "Guruh nomi")
             await ns.davomat_yaratish(
                 yozilish_id=y["id"], talaba_ismi=talaba_ismi, guruh_nomi=guruh_nomi,
-                sana=bugun.isoformat(), holat=config.HOLAT_OYLIK_HISOB,
+                sana=bugun_sana.isoformat(), holat=config.HOLAT_OYLIK_HISOB,
             )
 
 
 async def kunlik_hisobot(bot: Bot):
     """Har kuni 23:00 — adminga yig'ma hisobot."""
-    bugun_iso = date.today().isoformat()
+    bugun_iso = bugun().isoformat()
 
     filter_otildi = {
         "and": [
@@ -184,11 +193,11 @@ async def kunlik_hisobot(bot: Bot):
     belgilanmagan = await ns.belgilanmagan_darslar(kun_orqaga=0)
 
     ustozlar = await ns.get_barcha_ustozlar_faol()
-    tatildagilar = [u for u in ustozlar if ns.ustoz_tatilda_mi(u, date.today())]
+    tatildagilar = [u for u in ustozlar if ns.ustoz_tatilda_mi(u, bugun())]
 
     matn = (
         f"<b>📊  Kunlik hisobot</b>\n"
-        f"{sana_ozbekcha(date.today())}\n"
+        f"{sana_ozbekcha(bugun())}\n"
         f"{CHIZIQ}\n"
         f"✅  Dars o'tildi:  <b>{len(otildi)}</b>\n"
         f"🚫  Dars qoldirildi:  <b>{len(qoldirildi)}</b>\n"
@@ -203,7 +212,7 @@ async def kunlik_hisobot(bot: Bot):
 
 async def tatil_nazorati(bot: Bot):
     """Ta'til tugashidan 1 kun oldin so'raydi, muddati o'tganlarni avtomatik tozalaydi."""
-    bugun = date.today()
+    bugun_sana = bugun()
     ustozlar = await ns.get_barcha_ustozlar_faol()
 
     for ustoz in ustozlar:
@@ -218,7 +227,7 @@ async def tatil_nazorati(bot: Bot):
             continue
         tg_id = int(tg_id)
 
-        if tugash_sana == bugun + timedelta(days=1):
+        if tugash_sana == bugun_sana + timedelta(days=1):
             try:
                 await bot.send_message(
                     tg_id,
@@ -230,5 +239,5 @@ async def tatil_nazorati(bot: Bot):
                 )
             except Exception:
                 pass
-        elif tugash_sana < bugun:
+        elif tugash_sana < bugun_sana:
             await ns.clear_ustoz_tatil(ustoz["id"])

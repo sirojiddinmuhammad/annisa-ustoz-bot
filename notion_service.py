@@ -8,6 +8,7 @@ import httpx
 from datetime import date, datetime, timedelta
 
 import config
+from utils import bugun
 
 NOTION_API = "https://api.notion.com/v1"
 HEADERS = {
@@ -474,7 +475,7 @@ async def grafik_belgilanmaganga_qaytarish(guruh_id: str, sana: str) -> None:
 
 
 async def belgilanmagan_darslar(kun_orqaga: int = config.BELGILANMAGAN_TEKSHIRUV_KUN) -> list[dict]:
-    chegara = (date.today() - timedelta(days=kun_orqaga)).isoformat()
+    chegara = (bugun() - timedelta(days=kun_orqaga)).isoformat()
     filter_ = {
         "and": [
             {"property": "Holat", "select": {"equals": config.GRAFIK_BELGILANMAGAN}},

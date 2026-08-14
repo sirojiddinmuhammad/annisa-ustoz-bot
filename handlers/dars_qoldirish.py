@@ -12,7 +12,7 @@ import notion_service as ns
 import keyboards as kb
 from states import DarsQoldirish
 from utils import (sana_ozbekcha, yaqin_kunlar, html_himoya, CHIZIQ,
-                   dars_kunlari_raqamga)
+                   dars_kunlari_raqamga, bugun)
 
 router = Router()
 
@@ -150,12 +150,12 @@ async def barcha_darslarni_qoldirish(callback: CallbackQuery, bot: Bot):
         return
 
     await callback.answer("Bajarilmoqda...")
-    bugun = date.today().isoformat()
+    bugun_iso = bugun().isoformat()
     guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=True)
 
     qoldirilgan = []
     for g in guruhlar:
-        grafik = await ns.get_grafik_yozuv(g["id"], bugun)
+        grafik = await ns.get_grafik_yozuv(g["id"], bugun_iso)
         if grafik and ns.get_select(grafik, "Holat") == config.GRAFIK_DARS_OTILDI:
             continue
         nomi = ns.get_title(g, "Guruh nomi")
@@ -163,7 +163,7 @@ async def barcha_darslarni_qoldirish(callback: CallbackQuery, bot: Bot):
             await ns.grafik_yangilash(grafik["id"], config.GRAFIK_DARS_QOLDIRILDI,
                                        sabab=config.SABAB_BOSHQA)
         else:
-            await ns.grafik_yaratish(g["id"], bugun, config.GRAFIK_DARS_QOLDIRILDI,
+            await ns.grafik_yaratish(g["id"], bugun_iso, config.GRAFIK_DARS_QOLDIRILDI,
                                       sabab=config.SABAB_BOSHQA, guruh_nomi=nomi)
         qoldirilgan.append(nomi)
 
