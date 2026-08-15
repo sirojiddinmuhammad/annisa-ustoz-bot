@@ -59,6 +59,9 @@ async def ertalabki_eslatma(bot: Bot):
             continue  # ta'tildagi ustozga eslatma yuborilmaydi
 
         davomatli_guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=True)
+        if not davomatli_guruhlar:
+            continue  # umuman guruhi yo'q ustozga bo'sh eslatma yuborilmaydi
+
         bugungi = []
         for g in davomatli_guruhlar:
             kunlari = dars_kunlari_raqamga(ns.get_multi_select(g, "Dars kunlari"))
@@ -81,9 +84,6 @@ async def ertalabki_eslatma(bot: Bot):
             and ns.get_relation_ids(b, "Guruh")[0] in guruh_idlari
             and (ns.get_date_start(b, "Sana") or "")[:10] != bugun_iso
         ]
-
-        if not bugungi and not ozimizniki:
-            continue
 
         matn = (
             f"<b>📅  Bugungi darslar</b>\n"
