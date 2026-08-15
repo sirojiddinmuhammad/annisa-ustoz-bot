@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Annisaa Ustoz Bot — Qo'llanma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F5F3EE;
+  --paper-2:#FFFFFF;
+  --ink:#14202B;
+  --ink-soft:#4B5A67;
+  --lapis:#173250;
+  --lapis-2:#0E2137;
+  --turk:#1F8A8A;
+  --gold:#BE8A34;
+  --clay:#B0473B;
+  --amber:#D08327;
+  --line:#DEDACF;
+  --radius:14px;
+  --maxw:760px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:17px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{margin:0;font-weight:400}
+p{margin:0 0 1em}
+a{color:var(--turk)}
+
+/* ---------- HERO ---------- */
+.hero{
+  position:relative;
+  background:var(--lapis);
+  color:#F2EFE7;
+  padding:64px 24px 72px;
+  overflow:hidden;
+}
+.hero::before{
+  content:"";
+  position:absolute;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1'%3E%3Crect x='18' y='18' width='36' height='36' stroke-opacity='0.14'/%3E%3Crect x='18' y='18' width='36' height='36' transform='rotate(45 36 36)' stroke-opacity='0.14'/%3E%3Cpath d='M0 36h72M36 0v72' stroke-opacity='0.05'/%3E%3C/g%3E%3C/svg%3E");
+  opacity:.55;
+}
+.hero::after{
+  content:"";
+  position:absolute;left:0;right:0;bottom:0;height:5px;
+  background:linear-gradient(90deg,var(--turk) 0 33%,var(--gold) 33% 66%,var(--clay) 66% 100%);
+}
+.hero-in{position:relative;max-width:var(--maxw);margin:0 auto}
+.eyebrow{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+  color:#8FC9C9;margin-bottom:22px;
+}
+.hero h1{
+  font-family:"Instrument Serif",Georgia,serif;
+  font-size:clamp(44px,10vw,78px);
+  line-height:1.02;letter-spacing:-.01em;
+}
+.hero h1 em{font-style:italic;color:#9FD4CE}
+.hero-lead{
+  margin-top:22px;max-width:52ch;
+  font-size:18px;color:#CFD9DF;
+}
+.hero-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:30px}
+.tag{
+  font-size:13px;padding:6px 12px;border:1px solid rgba(255,255,255,.28);
+  border-radius:100px;color:#DCE6EA;
+}
+
+/* ---------- LAYOUT ---------- */
+.shell{max-width:1120px;margin:0 auto;display:block;padding:0 24px}
+.rail{display:none}
+.doc{max-width:var(--maxw);margin:0 auto;padding:8px 0 40px}
+
+@media(min-width:1040px){
+  .shell{display:grid;grid-template-columns:210px 1fr;gap:56px;padding:0 32px}
+  .rail{display:block;position:sticky;top:0;align-self:start;padding-top:64px;max-height:100vh;overflow:auto}
+  .doc{margin:0}
+}
+.rail ol{list-style:none;margin:0;padding:0}
+.rail li{margin-bottom:2px}
+.rail a{
+  display:flex;gap:10px;align-items:baseline;
+  padding:5px 8px;border-radius:8px;
+  color:var(--ink-soft);text-decoration:none;font-size:14px;line-height:1.35;
+  border-left:2px solid transparent;
+}
+.rail a span{font-family:"JetBrains Mono",monospace;font-size:11px;color:#A9A296}
+.rail a:hover{background:rgba(31,138,138,.08);color:var(--ink)}
+.rail a.on{border-left-color:var(--turk);color:var(--lapis);font-weight:600;background:rgba(31,138,138,.09)}
+.rail a.on span{color:var(--turk)}
+
+/* mobile chip nav */
+.chips{
+  position:sticky;top:0;z-index:20;
+  background:rgba(245,243,238,.94);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+  display:flex;gap:8px;overflow-x:auto;padding:10px 16px;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;
+}
+.chips::-webkit-scrollbar{display:none}
+.chips a{
+  flex:0 0 auto;font-size:13px;text-decoration:none;color:var(--ink-soft);
+  border:1px solid var(--line);background:#fff;border-radius:100px;padding:5px 13px;white-space:nowrap;
+}
+.chips a.on{background:var(--lapis);color:#fff;border-color:var(--lapis)}
+@media(min-width:1040px){.chips{display:none}}
+
+/* ---------- SECTIONS ---------- */
+section{padding:46px 0;border-bottom:1px solid var(--line)}
+section:last-of-type{border-bottom:0}
+.sec-head{display:flex;gap:14px;align-items:flex-start;margin-bottom:20px}
+.num{
+  flex:0 0 auto;width:34px;height:34px;margin-top:4px;
+  display:grid;place-items:center;
+  font-family:"JetBrains Mono",monospace;font-size:13px;
+  color:var(--turk);border:1px solid var(--turk);
+  transform:rotate(45deg);border-radius:3px;
+}
+.num b{transform:rotate(-45deg);font-weight:500}
+h2{
+  font-family:"Instrument Serif",Georgia,serif;
+  font-size:clamp(28px,5.5vw,38px);line-height:1.15;letter-spacing:-.01em;
+}
+h3{
+  font-size:15px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--lapis);margin:32px 0 12px;
+}
+.lead{font-size:18px;color:var(--ink-soft)}
+code{
+  font-family:"JetBrains Mono",monospace;font-size:.88em;
+  background:#EAE7DE;border:1px solid var(--line);border-radius:5px;padding:2px 6px;color:var(--lapis);
+}
+
+/* steps */
+ol.steps{counter-reset:s;list-style:none;margin:0 0 8px;padding:0}
+ol.steps li{
+  counter-increment:s;position:relative;padding-left:38px;margin-bottom:12px;
+}
+ol.steps li::before{
+  content:counter(s);position:absolute;left:0;top:1px;
+  width:24px;height:24px;border-radius:50%;background:var(--lapis);color:#fff;
+  font-family:"JetBrains Mono",monospace;font-size:12px;display:grid;place-items:center;
+}
+ul.plain{margin:0 0 1em;padding-left:20px}
+ul.plain li{margin-bottom:7px}
+
+/* cards / callouts */
+.note{
+  border-left:3px solid var(--gold);
+  background:#FBF7EC;
+  padding:16px 18px;border-radius:0 var(--radius) var(--radius) 0;
+  margin:22px 0;font-size:16px;
+}
+.note b{color:#8A6218}
+.note.teal{border-left-color:var(--turk);background:#EFF6F5}
+.note.teal b{color:#136B6B}
+
+.card{
+  background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius);
+  padding:20px;margin:22px 0;
+}
+.card-label{
+  font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:#A0998B;margin-bottom:14px;
+}
+
+/* menu keyboard */
+.kb{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kb .k{
+  background:#EDEAE2;border:1px solid var(--line);border-radius:9px;
+  padding:11px 12px;font-size:15px;text-align:center;color:var(--lapis);font-weight:500;
+}
+.kb .k.wide{grid-column:1/-1}
+.deflist{margin-top:20px}
+.deflist div{display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:16px}
+.deflist div:first-child{border-top:0}
+.deflist dt{flex:0 0 132px;font-weight:600;color:var(--lapis);margin:0}
+.deflist dd{margin:0;color:var(--ink-soft)}
+@media(max-width:520px){
+  .deflist div{flex-direction:column;gap:2px}
+  .deflist dt{flex:none}
+}
+
+/* ---------- ATTENDANCE DEMO (signature) ---------- */
+.demo{
+  background:linear-gradient(180deg,#12293F,#0D1E30);
+  border-radius:18px;padding:20px;color:#E7EDF1;margin:26px 0;
+  box-shadow:0 18px 40px -28px rgba(13,30,48,.8);
+}
+.demo-top{
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:#7FB6B6;margin-bottom:6px;
+}
+.demo-title{font-size:15px;color:#fff;margin-bottom:14px}
+.demo-title b{font-weight:600}
+.row{
+  width:100%;display:flex;align-items:center;gap:11px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  color:#E7EDF1;border-radius:10px;padding:11px 13px;margin-bottom:7px;
+  font-size:15px;font-family:inherit;text-align:left;cursor:pointer;
+  transition:background .15s ease,transform .08s ease;
+}
+.row:hover{background:rgba(255,255,255,.11)}
+.row:active{transform:scale(.99)}
+.row:focus-visible{outline:2px solid #7FD1CB;outline-offset:2px}
+.row .ic{font-size:17px;line-height:1}
+.row .nm{flex:1}
+.row .st{font-size:12px;font-family:"JetBrains Mono",monospace;letter-spacing:.04em;opacity:.85}
+.row[data-s="keldi"]{border-color:rgba(122,201,168,.45)}
+.row[data-s="keldi"] .st{color:#7AC9A8}
+.row[data-s="kelmadi"]{border-color:rgba(224,124,110,.45)}
+.row[data-s="kelmadi"] .st{color:#E07C6E}
+.row[data-s="sababli"]{border-color:rgba(226,164,79,.45)}
+.row[data-s="sababli"] .st{color:#E2A44F}
+.tag-tatil{font-size:11px;color:#9BAEBC;font-family:"JetBrains Mono",monospace}
+.demo-foot{
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;
+  margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12);
+}
+.tally{font-size:13px;color:#B7C6D0;font-family:"JetBrains Mono",monospace}
+.demo-btn{
+  background:#7FD1CB;color:#0D1E30;border:0;border-radius:9px;
+  padding:9px 16px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;
+}
+.demo-btn.ghost{background:transparent;color:#9BAEBC;border:1px solid rgba(255,255,255,.2)}
+.demo-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.receipt{
+  margin-top:14px;background:rgba(255,255,255,.07);border:1px dashed rgba(255,255,255,.22);
+  border-radius:10px;padding:14px;font-size:14px;white-space:pre-line;line-height:1.5;
+}
+.hint{font-size:14px;color:var(--ink-soft);margin-top:-8px}
+
+/* status legend */
+.legend{display:grid;gap:10px;margin:22px 0}
+.legend .l{
+  display:flex;gap:13px;align-items:flex-start;
+  background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;
+}
+.legend .l i{font-style:normal;font-size:19px;line-height:1.3}
+.legend .l b{display:block;font-size:16px}
+.legend .l small{color:var(--ink-soft);font-size:14.5px}
+.legend .l[data-k="keldi"]{border-left:3px solid #2E8B62}
+.legend .l[data-k="kelmadi"]{border-left:3px solid var(--clay)}
+.legend .l[data-k="sababli"]{border-left:3px solid var(--amber)}
+
+/* cycle strip */
+.cycle{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font-size:15px;background:#EDEAE2;border-radius:100px;padding:10px 16px;margin:6px 0 18px;
+  color:var(--lapis);
+}
+.cycle span.ar{color:#A0998B}
+
+/* balance mock */
+.bal div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-top:1px solid var(--line);font-size:16px}
+.bal div:first-of-type{border-top:0}
+.bal .v{font-family:"JetBrains Mono",monospace;color:var(--lapis)}
+.bal .big{font-weight:700}
+.bal .big .v{color:var(--turk)}
+
+/* reminders */
+.remind{display:grid;gap:14px;margin-top:8px}
+.remind .r{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--lapis);border-radius:var(--radius);padding:16px 18px}
+.remind .r b{display:block;margin-bottom:3px}
+.remind .r span{color:var(--ink-soft);font-size:15.5px}
+
+/* footer */
+footer{
+  background:var(--lapis-2);color:#B9C6CF;text-align:center;
+  padding:52px 24px;margin-top:20px;
+}
+footer .dua{font-family:"Instrument Serif",Georgia,serif;font-size:26px;color:#EDE8DC;margin-bottom:8px}
+footer .sig{font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#7FB6B6;margin-top:18px}
+
+/* reveal */
+.rv{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
+.rv.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  .rv{opacity:1;transform:none;transition:none}
+  html{scroll-behavior:auto}
+}
+
+@media print{
+  .chips,.rail,.demo-btn{display:none}
+  body{background:#fff;font-size:12pt}
+  .hero{background:#fff;color:#000;padding:0 0 20px}
+  .hero::before,.hero::after{display:none}
+  .hero h1 em{color:#000}
+  .hero-lead,.tag{color:#333}
+  section{page-break-inside:avoid;border-bottom:1px solid #ccc}
+  .demo{background:#fff;color:#000;border:1px solid #999}
+  .row{color:#000;border:1px solid #999}
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-in">
+    <div class="eyebrow">Annisaa Markazi · Ustozlar uchun</div>
+    <h1>Ustoz bot<br><em>qo'llanmasi</em></h1>
+    <p class="hero-lead">Assalomu alaykum, hurmatli ustozlar! Bu bot orqali siz dars davomatini kiritasiz, dars qoldirganingizni belgilaysiz, ta'til olasiz va o'z balansingizni ko'rasiz. Barcha ma'lumot markaz tizimiga avtomatik yoziladi — endi hech narsani qo'lda yozib yuborish shart emas.</p>
+    <div class="hero-tags">
+      <span class="tag">📋 Davomat</span>
+      <span class="tag">🚫 Dars qoldirish</span>
+      <span class="tag">🌴 Ta'til</span>
+      <span class="tag">📅 Bugungi darslar</span>
+      <span class="tag">💰 Balans</span>
+    </div>
+  </div>
+</header>
+
+<nav class="chips" id="chips">
+  <a href="#s1">Ishni boshlash</a>
+  <a href="#s2">Asosiy menyu</a>
+  <a href="#s3">Davomat</a>
+  <a href="#s4">Tuzatish</a>
+  <a href="#s5">Dars qoldirish</a>
+  <a href="#s6">Ta'til</a>
+  <a href="#s7">Kunlik eslatma</a>
+  <a href="#s8">Balansim</a>
+  <a href="#s9">Eslatmalar</a>
+  <a href="#s10">Muammo chiqsa</a>
+</nav>
+
+<div class="shell">
+
+  <aside class="rail">
+    <ol id="rail">
+      <li><a href="#s1"><span>01</span>Ishni boshlash</a></li>
+      <li><a href="#s2"><span>02</span>Asosiy menyu</a></li>
+      <li><a href="#s3"><span>03</span>Davomat kiritish</a></li>
+      <li><a href="#s4"><span>04</span>Davomatni tuzatish</a></li>
+      <li><a href="#s5"><span>05</span>Dars qoldirish</a></li>
+      <li><a href="#s6"><span>06</span>Ta'til olish</a></li>
+      <li><a href="#s7"><span>07</span>Kunlik eslatma</a></li>
+      <li><a href="#s8"><span>08</span>Balansim</a></li>
+      <li><a href="#s9"><span>09</span>Muhim eslatmalar</a></li>
+      <li><a href="#s10"><span>10</span>Muammo chiqsa</a></li>
+    </ol>
+  </aside>
+
+  <main class="doc">
+
+    <!-- 1 -->
+    <section id="s1" class="rv">
+      <div class="sec-head"><div class="num"><b>01</b></div><h2>Ishni boshlash</h2></div>
+      <p>Botni oching va <code>/start</code> yozing.</p>
+      <p>Bot sizdan <b>markazdagi to'liq ismingizni</b> so'raydi. Ismni ro'yxatdagidek yozing — masalan <code>Ummu Nur</code>.</p>
+      <p>So'rovingiz adminga boradi. Admin tasdiqlagach, sizga xabar keladi va menyu ochiladi.</p>
+      <div class="note"><b>Muhim.</b> Ismni noto'g'ri yozsangiz, admin sizni topa olmaydi. Ishonchingiz komil bo'lmasa, avval markazdan so'rang.</div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2" class="rv">
+      <div class="sec-head"><div class="num"><b>02</b></div><h2>Asosiy menyu</h2></div>
+      <p class="lead">Ro'yxatdan o'tganingizdan keyin ekranning pastida doimiy menyu paydo bo'ladi.</p>
+      <div class="card">
+        <div class="card-label">Ekran pastidagi menyu</div>
+        <div class="kb">
+          <div class="k">📋 Davomat</div>
+          <div class="k">🚫 Dars qoldirish</div>
+          <div class="k">🌴 Ta'til olish</div>
+          <div class="k">📅 Bugungi darslar</div>
+          <div class="k wide">💰 Balansim</div>
+        </div>
+        <dl class="deflist">
+          <div><dt>📋 Davomat</dt><dd>Dars davomatini kiritish</dd></div>
+          <div><dt>🚫 Dars qoldirish</dt><dd>Dars bo'lmaganini belgilash</dd></div>
+          <div><dt>🌴 Ta'til olish</dt><dd>Dam olish kunlarini belgilash</dd></div>
+          <div><dt>📅 Bugungi darslar</dt><dd>Bugungi jadvalingiz</dd></div>
+          <div><dt>💰 Balansim</dt><dd>Daromadingiz</dd></div>
+        </dl>
+      </div>
+      <p>Menyu yo'qolib qolsa — <code>/menyu</code> yozing, qaytadi.</p>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3" class="rv">
+      <div class="sec-head"><div class="num"><b>03</b></div><h2>Davomat kiritish</h2></div>
+      <p class="lead">Bu — botning eng asosiy vazifasi. Har darsdan keyin bajariladi.</p>
+
+      <h3>Qadamlar</h3>
+      <ol class="steps">
+        <li><b>📋 Davomat</b> ni bosing</li>
+        <li><b>Guruhni</b> tanlang (yonida dars vaqti ham ko'rinadi)</li>
+        <li><b>Kunni</b> tanlang</li>
+        <li>Talabalar ro'yxati chiqadi</li>
+      </ol>
+
+      <h3>Belgilash</h3>
+      <p>Boshida <b>hamma talaba ✅ Keldi</b> holatida turadi. Ya'ni hammasi kelgan bo'lsa, hech narsani o'zgartirmasdan darhol <b>💾 Saqlash</b> ni bosaverasiz.</p>
+      <p>Faqat kelmaganlarni belgilaysiz. Talaba ismiga bosgan sari holat almashadi:</p>
+      <div class="cycle">✅ Keldi <span class="ar">→</span> ❌ Kelmadi <span class="ar">→</span> 🟠 Sababli <span class="ar">→</span> ✅ Keldi</div>
+
+      <p class="hint">Quyidagi ro'yxat — haqiqiy botdagidek ishlaydi. Ismlarga bosib ko'ring.</p>
+
+      <!-- interactive demo -->
+      <div class="demo" id="demo">
+        <div class="demo-top"><span>Namuna</span><span>Chorshanba · 14:00</span></div>
+        <div class="demo-title"><b>Hifz — 2-guruh</b> · davomat</div>
+        <div id="rows"></div>
+        <div class="demo-foot">
+          <div class="tally" id="tally"></div>
+          <div style="display:flex;gap:8px">
+            <button class="demo-btn ghost" id="reset" type="button">Qaytadan</button>
+            <button class="demo-btn" id="save" type="button">💾 Saqlash</button>
+          </div>
+        </div>
+        <div class="receipt" id="receipt" hidden></div>
+      </div>
+
+      <h3>Uch holat nimani anglatadi</h3>
+      <div class="legend">
+        <div class="l" data-k="keldi"><i>✅</i><div><b>Keldi</b><small>Talaba darsda qatnashdi. To'lov yechiladi.</small></div></div>
+        <div class="l" data-k="kelmadi"><i>❌</i><div><b>Kelmadi</b><small>Sababsiz kelmadi. To'lov yechiladi — joyi band edi.</small></div></div>
+        <div class="l" data-k="sababli"><i>🟠</i><div><b>Sababli</b><small>Uzrli sabab bilan kelmadi. To'lov yechilmaydi.</small></div></div>
+      </div>
+      <div class="note"><b>Diqqat.</b> «Sababli» deb belgilasangiz, talabadan pul yechilmaydi. Demak sizning ham o'sha darsdan daromadingiz bo'lmaydi. Shuning uchun bu holatni faqat haqiqatan uzrli sabab bo'lganda ishlating.</div>
+
+      <h3>Ta'tildagi talabalar</h3>
+      <p>Agar talabaga markaz tomonidan ta'til berilgan bo'lsa, u ro'yxatda <code>🟠 Sababli (ta'tilda)</code> ko'rinishida chiqadi. Bot uni oldindan belgilab qo'yadi, siz tegmasangiz ham bo'ladi.</p>
+      <p>Lekin agar u <b>aytmasdan darsga kelib qolsa</b> — bemalol ✅ Keldi ga o'zgartiring. Bu haqda adminga avtomatik xabar boradi.</p>
+
+      <h3>Saqlagandan keyin</h3>
+      <p>Bot ikkita xabar yuboradi:</p>
+      <ol class="steps">
+        <li>Qisqa tasdiq — «Saqlandi»</li>
+        <li><b>Guruhga yuborish uchun tayyor hisobot</b> — uni ushlab turib <b>Forward</b> qilsangiz, guruhga chiroyli ko'rinishda tushadi</li>
+      </ol>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4" class="rv">
+      <div class="sec-head"><div class="num"><b>04</b></div><h2>Davomatni tuzatish</h2></div>
+      <p class="lead">Xato kiritib qo'ysangiz — tuzatish mumkin.</p>
+      <p><b>📋 Davomat</b> → o'sha guruh → o'sha kun ni tanlang. Bot allaqachon kiritilganini aytadi va ikki tugma beradi:</p>
+      <div class="card">
+        <dl class="deflist">
+          <div><dt>✏️ Tahrirlash</dt><dd>Holatlarni o'zgartirasiz — istalgan vaqt ishlaydi.</dd></div>
+          <div><dt>🗑 O'chirish</dt><dd>Butun kunni o'chirasiz — faqat 1 hafta ichida.</dd></div>
+        </dl>
+      </div>
+      <div class="note teal"><b>Eslatma.</b> Bir haftadan eski davomatni o'chirish uchun adminga murojaat qiling.</div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5" class="rv">
+      <div class="sec-head"><div class="num"><b>05</b></div><h2>Dars qoldirish</h2></div>
+      <p class="lead">Agar dars <b>umuman bo'lmasa</b> (siz kasal bo'lsangiz, texnik muammo chiqsa) — buni belgilang. Shunda hech kimdan pul yechilmaydi.</p>
+      <p><b>🚫 Dars qoldirish</b> → guruh → kun → sabab → qisqa izoh.</p>
+      <div class="card">
+        <div class="card-label">Sabablar</div>
+        <div class="kb">
+          <div class="k">Kasallik</div>
+          <div class="k">Sayohat</div>
+          <div class="k">Oilaviy sabab</div>
+          <div class="k">Texnik muammo</div>
+          <div class="k wide">Boshqa</div>
+        </div>
+      </div>
+      <p>Izoh kerak bo'lmasa <code>-</code> yuboring.</p>
+
+      <h3>Bir kunda bir nechta dars bo'lsa</h3>
+      <p>Agar o'sha kuni bir nechta darsingiz bo'lsa, <b>📅 Bugungi darslar</b> bo'limida <b>«Bugungi barcha darslarni qoldirish»</b> tugmasi chiqadi. Bir bosishda hammasi qoldiriladi.</p>
+      <div class="note teal"><b>Fikringiz o'zgarsa muammo yo'q.</b> Keyinroq o'sha guruhga oddiy tartibda davomat kiritsangiz, «qoldirilgan» belgisi avtomat bekor bo'ladi.</div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6" class="rv">
+      <div class="sec-head"><div class="num"><b>06</b></div><h2>Ta'til olish</h2></div>
+      <p><b>🌴 Ta'til olish</b> ni bosing.</p>
+      <ol class="steps">
+        <li><b>Boshlanish kunini</b> tanlang — Bugun / Ertaga / yaqin kunlar</li>
+        <li><b>Muddatni</b> tanlang — 3 kun / 1 hafta / 2 hafta / 1 oy, yoki «Boshqa muddat» bo'lsa sanani o'zingiz yozasiz</li>
+        <li><b>Tasdiqlang</b></li>
+      </ol>
+
+      <h3>Ta'til davomida</h3>
+      <ul class="plain">
+        <li>Barcha darslaringiz avtomat «qoldirildi» deb belgilanadi</li>
+        <li>Sizga kunlik eslatma kelmaydi</li>
+        <li>Adminga xabar boradi</li>
+      </ul>
+
+      <h3>Qaytish</h3>
+      <p>Ta'til tugashidan <b>bir kun oldin</b> bot so'raydi: «Ertaga qaytasizmi?»</p>
+      <div class="card">
+        <dl class="deflist">
+          <div><dt>✅ Ha, qaytdim</dt><dd>Hammasi odatdagidek davom etadi.</dd></div>
+          <div><dt>🌴 Uzaytiraman</dt><dd>Yangi muddat tanlaysiz.</dd></div>
+        </dl>
+      </div>
+      <p>Erta qaytmoqchi bo'lsangiz, <b>🌴 Ta'til olish</b> ni qayta bosib, <b>«Ta'tilni bekor qilish»</b> ni tanlang.</p>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7" class="rv">
+      <div class="sec-head"><div class="num"><b>07</b></div><h2>Kunlik eslatma</h2></div>
+      <p>Har kuni ertalab bot sizga bugungi darslar ro'yxatini yuboradi — vaqti va guruh nomi bilan.</p>
+      <p>Agar oldingi kunlardan <b>belgilanmagan darslar</b> qolgan bo'lsa, ular ham ro'yxatda ko'rsatiladi. Ularni <b>📋 Davomat</b> orqali o'sha kunni tanlab kiritishingiz mumkin.</p>
+      <p>Bugun darsingiz bo'lmasa ham qisqa xabar keladi — bot ishlab turganini bilib turasiz.</p>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8" class="rv">
+      <div class="sec-head"><div class="num"><b>08</b></div><h2>Balansim</h2></div>
+      <p class="lead"><b>💰 Balansim</b> tugmasi quyidagilarni ko'rsatadi.</p>
+      <div class="card bal">
+        <div class="card-label">Namuna</div>
+        <div><span>Jami ishlab topgan</span><span class="v">butun faoliyatingiz davomida</span></div>
+        <div><span>Berilgan oyliklar</span><span class="v">markaz sizga to'lagan summa</span></div>
+        <div class="big"><span>Balans</span><span class="v">hali olinmagan qismi</span></div>
+        <div><span>Shu oy</span><span class="v">joriy oyda ishlagan summangiz</span></div>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9" class="rv">
+      <div class="sec-head"><div class="num"><b>09</b></div><h2>Muhim eslatmalar</h2></div>
+      <div class="remind">
+        <div class="r"><b>Davomatni kechiktirmang.</b><span>Har dars tugashi bilan kiriting. Kechikkan davomat «belgilanmagan» bo'lib qoladi va sizga har kuni eslatib turiladi.</span></div>
+        <div class="r"><b>Ta'tildagi talabaga e'tibor bering.</b><span>U kelib qolsa ✅ ga o'zgartirishni unutmang — aks holda uning to'lovi hisoblanmay qoladi.</span></div>
+        <div class="r"><b>«Sababli» ni o'ylab ishlating.</b><span>Bu talabaning pulini saqlaydi, lekin sizning daromadingizni kamaytiradi.</span></div>
+        <div class="r"><b>Guruhga hisobot yuborish shart emas.</b><span>Lekin yuborsangiz, talabalar va ota-onalar uchun foydali bo'ladi.</span></div>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10" class="rv">
+      <div class="sec-head"><div class="num"><b>10</b></div><h2>Muammo chiqsa</h2></div>
+      <p class="lead">Bot javob bermasa yoki g'alati ishlasa:</p>
+      <ol class="steps">
+        <li><code>/start</code> yozib ko'ring</li>
+        <li>Menyu yo'qolgan bo'lsa <code>/menyu</code> yozing</li>
+        <li>Baribir tuzalmasa — administratorga murojaat qiling</li>
+      </ol>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <div class="dua">Barakalla, ishingizga rivoj tilaymiz 🌿</div>
+  <div class="sig">Annisaa Markazi</div>
+</footer>
+
+<script>
+(function(){
+  var CY = ["keldi","kelmadi","sababli"];
+  var META = {
+    keldi:   {ic:"✅", label:"KELDI"},
+    kelmadi: {ic:"❌", label:"KELMADI"},
+    sababli: {ic:"🟠", label:"SABABLI"}
+  };
+  var BASE = [
+    {n:"Maryam Yo'ldosheva", s:"keldi", tatil:false},
+    {n:"Osiya Karimova",     s:"keldi", tatil:false},
+    {n:"Zaynab Rasulova",    s:"sababli", tatil:true},
+    {n:"Hafsa Ne'matova",    s:"keldi", tatil:false},
+    {n:"Ruqiya Sobirova",    s:"keldi", tatil:false}
+  ];
+  var data = BASE.map(function(o){return {n:o.n, s:o.s, tatil:o.tatil};});
+
+  var rowsEl = document.getElementById("rows");
+  var tallyEl = document.getElementById("tally");
+  var receipt = document.getElementById("receipt");
+
+  function draw(){
+    rowsEl.innerHTML = "";
+    data.forEach(function(t, i){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "row";
+      b.setAttribute("data-s", t.s);
+      b.innerHTML = '<span class="ic">' + META[t.s].ic + '</span>' +
+                    '<span class="nm">' + t.n +
+                    (t.tatil && t.s === "sababli" ? ' <span class="tag-tatil">(ta\'tilda)</span>' : '') +
+                    '</span>' +
+                    '<span class="st">' + META[t.s].label + '</span>';
+      b.addEventListener("click", function(){
+        t.s = CY[(CY.indexOf(t.s) + 1) % 3];
+        receipt.hidden = true;
+        draw();
+      });
+      rowsEl.appendChild(b);
+    });
+    var k=0,x=0,s=0;
+    data.forEach(function(t){ if(t.s==="keldi")k++; else if(t.s==="kelmadi")x++; else s++; });
+    tallyEl.textContent = "✅ " + k + "   ❌ " + x + "   🟠 " + s;
+  }
+
+  document.getElementById("save").addEventListener("click", function(){
+    var k=0,x=0,s=0;
+    data.forEach(function(t){ if(t.s==="keldi")k++; else if(t.s==="kelmadi")x++; else s++; });
+    var txt = "📋 Hifz — 2-guruh\nChorshanba, 14:00\n\n";
+    data.forEach(function(t){ txt += META[t.s].ic + " " + t.n + "\n"; });
+    txt += "\nKeldi: " + k + " · Kelmadi: " + x + " · Sababli: " + s +
+           "\n\n✅ Saqlandi. Bu hisobotni guruhga Forward qilishingiz mumkin.";
+    receipt.textContent = txt;
+    receipt.hidden = false;
+  });
+
+  document.getElementById("reset").addEventListener("click", function(){
+    data = BASE.map(function(o){return {n:o.n, s:o.s, tatil:o.tatil};});
+    receipt.hidden = true;
+    draw();
+  });
+
+  draw();
+
+  // scroll reveal
+  var rv = document.querySelectorAll(".rv");
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, {rootMargin:"0px 0px -8% 0px"});
+    rv.forEach(function(el){ io.observe(el); });
+  } else {
+    rv.forEach(function(el){ el.classList.add("in"); });
+  }
+
+  // active nav
+  var links = document.querySelectorAll('.rail a, .chips a');
+  var secs = document.querySelectorAll('main section');
+  if ("IntersectionObserver" in window) {
+    var io2 = new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if(e.isIntersecting){
+          var id = e.target.id;
+          links.forEach(function(a){
+            a.classList.toggle("on", a.getAttribute("href") === "#" + id);
+          });
+        }
+      });
+    }, {rootMargin:"-45% 0px -50% 0px"});
+    secs.forEach(function(s){ io2.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>
