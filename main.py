@@ -3,6 +3,7 @@
 
 import asyncio
 import logging
+import os
 
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.client.default import DefaultBotProperties
@@ -39,8 +40,21 @@ async def diagnostika(message: Message):
         f"<b>🔧  Diagnostika</b>\n"
         f"{CHIZIQ}\n"
         f"Admin huquqi: {'✅' if message.from_user.id == config.ADMIN_ID else '❌'}\n"
-        f"{CHIZIQ}\n"
     )
+
+    # Mini App sozlamasi
+    xom = os.environ.get("WEBAPP_URL", "")
+    if config.WEBAPP_URL:
+        matn += f"Qo'llanma: ✅\n<code>{config.WEBAPP_URL}</code>\n"
+    elif not xom:
+        matn += "Qo'llanma: ❌ WEBAPP_URL umuman kiritilmagan\n"
+    else:
+        matn += (
+            f"Qo'llanma: ❌ HTTPS emas\n"
+            f"Kiritilgan: <code>{xom[:60]}</code>\n"
+        )
+
+    matn += f"{CHIZIQ}\n"
     bazalar = {
         "Ustozlar": config.DB_USTOZLAR,
         "Guruhlar": config.DB_GURUHLAR,
