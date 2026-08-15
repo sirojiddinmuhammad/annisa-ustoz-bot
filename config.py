@@ -4,10 +4,18 @@
 import os
 from zoneinfo import ZoneInfo
 
-# --- Telegram va Notion tokenlari (Railway Variables orqali beriladi) ---
+# --- Telegram tokenlari (Railway Variables orqali beriladi) ---
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 NOTION_TOKEN = os.environ["NOTION_TOKEN"]
 ADMIN_ID = int(os.environ["ADMIN_ID"])
+
+# Mini App havolasi. Railway'da domen yaratilgach shu ko'rinishda beriladi:
+#   https://loyiha-nomi.up.railway.app/qollanma
+# Bo'sh bo'lsa bot ishlaydi, faqat qo'llanma tugmasi ogohlantirish beradi.
+# Diqqat: Telegram Mini App faqat HTTPS qabul qiladi — http:// bo'lsa
+# Telegram tugmani rad etadi va bot xato beradi, shuning uchun tekshiramiz.
+_webapp_url = os.environ.get("WEBAPP_URL", "").strip()
+WEBAPP_URL = _webapp_url if _webapp_url.startswith("https://") else ""
 
 # --- Vaqt zonasi ---
 TASHKENT_TZ = ZoneInfo("Asia/Tashkent")

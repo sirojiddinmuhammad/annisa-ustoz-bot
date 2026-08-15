@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton,
-    ReplyKeyboardMarkup, KeyboardButton,
+    ReplyKeyboardMarkup, KeyboardButton, WebAppInfo,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -20,26 +20,51 @@ BTN_DARS_QOLDIRISH = "🚫 Dars qoldirish"
 BTN_TATIL = "🌴 Ta'til olish"
 BTN_BUGUNGI = "📅 Bugungi darslar"
 BTN_BALANS = "💰 Balansim"
+BTN_QOLLANMA = "📖 Qo'llanma"
 
 # Matn kutayotgan handlerlar shu ro'yxatdagi matnlarni e'tiborsiz qoldirishi kerak,
 # aks holda menyu tugmasi "sana" yoki "izoh" deb qabul qilinadi.
 MENYU_TUGMALARI = [
     BTN_DAVOMAT, BTN_DARS_QOLDIRISH, BTN_TATIL, BTN_BUGUNGI, BTN_BALANS,
+    BTN_QOLLANMA,
 ]
 
 
 def asosiy_menyu() -> ReplyKeyboardMarkup:
-    """Pastda doimiy turadigan menyu."""
+    """Pastda doimiy turadigan menyu.
+    Qo'llanma tugmasi — Mini App: bir bosishda darhol ochiladi.
+    WEBAPP_URL bo'sh bo'lsa oddiy matn tugmasiga aylanadi (bot crash bo'lmasin).
+    """
+    if config.WEBAPP_URL:
+        qollanma_tugmasi = KeyboardButton(
+            text=BTN_QOLLANMA,
+            web_app=WebAppInfo(url=config.WEBAPP_URL),
+        )
+    else:
+        qollanma_tugmasi = KeyboardButton(text=BTN_QOLLANMA)
+
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=BTN_DAVOMAT)],
-            [KeyboardButton(text=BTN_DARS_QOLDIRISH), KeyboardButton(text=BTN_TATIL)],
-            [KeyboardButton(text=BTN_BUGUNGI), KeyboardButton(text=BTN_BALANS)],
+            [KeyboardButton(text=BTN_DAVOMAT), KeyboardButton(text=BTN_DARS_QOLDIRISH)],
+            [KeyboardButton(text=BTN_TATIL), KeyboardButton(text=BTN_BUGUNGI)],
+            [KeyboardButton(text=BTN_BALANS), qollanma_tugmasi],
         ],
         resize_keyboard=True,
         is_persistent=True,
         input_field_placeholder="Menyudan tanlang",
     )
+
+
+def qollanma_inline() -> InlineKeyboardMarkup | None:
+    """/qollanma buyrug'i uchun inline tugma."""
+    if not config.WEBAPP_URL:
+        return None
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="📖  Qo'llanmani ochish",
+            web_app=WebAppInfo(url=config.WEBAPP_URL),
+        )
+    ]])
 
 
 def guruhlar_royxati(guruhlar: list[dict], prefix: str) -> InlineKeyboardMarkup:

@@ -16,9 +16,11 @@ import config
 import keyboards as kb
 import notion_service as ns
 import scheduler as sch
+import webserver
 from utils import CHIZIQ
 
-from handlers import registration, davomat, dars_qoldirish, tatil, balansim, bugungi
+from handlers import (registration, davomat, dars_qoldirish, tatil,
+                      balansim, bugungi, qollanma)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -90,14 +92,21 @@ async def main():
     dp.include_router(tatil.router)
     dp.include_router(balansim.router)
     dp.include_router(bugungi.router)
+    dp.include_router(qollanma.router)
     dp.include_router(zaxira_router)  # eng oxirida!
 
     scheduler = AsyncIOScheduler()
     sch.sozlash(scheduler, bot)
     scheduler.start()
 
+    # Web server (Mini App uchun) polling bilan parallel ishlaydi
+    runner = await webserver.ishga_tushirish()
+
     logger.info("Ustozlar boti ishga tushdi.")
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await runner.cleanup()
 
 
 if __name__ == "__main__":
