@@ -361,9 +361,11 @@ async def _chegirma_hisobla(yozilish_id: str, guruh_page: dict, sana: str):
         return None, None, None
 
     limit = ns.get_number(chegirma, "Dars soni") or 0
-    joriy = await ns.chegirmali_darslar_soni(chegirma["id"])
+    # Diqqat: sanash FAQAT shu talabaga tegishli — bitta Chegirma yozuvi bir
+    # nechta talabaga baravar biriktirilgan bo'lishi mumkin, shuning uchun
+    # umumiy son emas, har talabaning o'zi uchun alohida hisoblanadi.
+    joriy = await ns.chegirmali_darslar_soni(chegirma["id"], yozilish_id)
     if joriy >= limit:
-        await ns.chegirmani_tugat(chegirma["id"], sana)
         return None, None, None
 
     talaba_toladi, ustoz_ulushi = ns.chegirmali_summa_hisobla(
@@ -373,7 +375,10 @@ async def _chegirma_hisobla(yozilish_id: str, guruh_page: dict, sana: str):
         ns.get_select(chegirma, "Kim ko'taradi"),
     )
 
+    # Chegirmani faqat BARCHA bog'langan talabalar o'z limitiga yetganda
+    # yopamiz — aks holda boshqa talabalar hali chegirmadan mahrum qoladi.
     if joriy + 1 >= limit:
-        await ns.chegirmani_tugat(chegirma["id"], sana)
+        if await ns.chegirma_barcha_talabalar_tugadimi(chegirma, limit):
+            await ns.chegirmani_tugat(chegirma["id"], sana)
 
     return talaba_toladi, ustoz_ulushi, chegirma["id"]

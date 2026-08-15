@@ -294,11 +294,31 @@ async def get_faol_chegirma(yozilish_id: str) -> dict | None:
     return results[0] if results else None
 
 
-async def chegirmali_darslar_soni(chegirma_id: str) -> int:
-    """Shu chegirmaga bog'langan Davomat yozuvlari soni."""
-    filter_ = {"property": "Chegirma", "relation": {"contains": chegirma_id}}
+async def chegirmali_darslar_soni(chegirma_id: str, yozilish_id: str) -> int:
+    """Shu chegirmaning FAQAT shu talabaga (Yozilishga) tegishli Davomat
+    yozuvlari soni. Diqqat: bitta Chegirma yozuvi bir nechta talabaga
+    (Yozilishga) baravar biriktirilgan bo'lishi mumkin — shuning uchun umumiy
+    son emas, har talabaning o'zi uchun alohida sanaladi."""
+    filter_ = {
+        "and": [
+            {"property": "Chegirma", "relation": {"contains": chegirma_id}},
+            {"property": "Yozilish", "relation": {"contains": yozilish_id}},
+        ]
+    }
     results = await query_all(config.DB_DAVOMAT, filter_)
     return len(results)
+
+
+async def chegirma_barcha_talabalar_tugadimi(chegirma: dict, limit: float) -> bool:
+    """Chegirmaga bog'langan HAR BIR talaba o'z limitiga yetganmi — shundagina
+    umumiy Chegirma yozuvini 'Tugagan' qilish mumkin, aks holda boshqa
+    talabalar hali chegirmadan mahrum qolib ketadi."""
+    yozilish_idlari = get_relation_ids(chegirma, "Yozilish")
+    for y_id in yozilish_idlari:
+        soni = await chegirmali_darslar_soni(chegirma["id"], y_id)
+        if soni < limit:
+            return False
+    return True
 
 
 async def chegirmani_tugat(chegirma_id: str, sana: str) -> None:
