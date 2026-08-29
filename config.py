@@ -94,3 +94,6 @@ GURUH_TUGAGAN = "Tugagan"
 # --- Chegirma holati ---
 CHEGIRMA_FAOL = "Faol"
 CHEGIRMA_TUGAGAN = "Tugagan"
+
+# Ketma-ket shuncha marta "Darsga kelmadi" bo'lsa adminga ogohlantirish yuboriladi
+KELMAGAN_OGOHLANTIRISH = 3
