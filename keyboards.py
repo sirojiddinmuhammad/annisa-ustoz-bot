@@ -15,18 +15,19 @@ import config
 from utils import sana_ozbekcha, bugun
 
 # --- Pastdagi doimiy menyu tugmalari (matn sifatida keladi) ---
-BTN_DAVOMAT = "📋 Davomat"
-BTN_DARS_QOLDIRISH = "🚫 Dars qoldirish"
-BTN_TATIL = "🌴 Ta'til olish"
 BTN_BUGUNGI = "📅 Bugungi darslar"
-BTN_BALANS = "💰 Balansim"
+BTN_DAVOMAT = "📋 Davomat kiritish"
+BTN_DARS_QOLDIRISH = "🚫 Dars qoldirish"
+BTN_CHIQARISH = "🚪 Talabani chiqarish"
+BTN_TATIL = "🌴 Ta'til olish"
+BTN_BALANS = "💰 Balans"
 BTN_QOLLANMA = "📖 Qo'llanma"
 
 # Matn kutayotgan handlerlar shu ro'yxatdagi matnlarni e'tiborsiz qoldirishi kerak,
 # aks holda menyu tugmasi "sana" yoki "izoh" deb qabul qilinadi.
 MENYU_TUGMALARI = [
-    BTN_DAVOMAT, BTN_DARS_QOLDIRISH, BTN_TATIL, BTN_BUGUNGI, BTN_BALANS,
-    BTN_QOLLANMA,
+    BTN_BUGUNGI, BTN_DAVOMAT, BTN_DARS_QOLDIRISH, BTN_CHIQARISH,
+    BTN_TATIL, BTN_BALANS, BTN_QOLLANMA,
 ]
 
 
@@ -45,9 +46,10 @@ def asosiy_menyu() -> ReplyKeyboardMarkup:
 
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=BTN_DAVOMAT), KeyboardButton(text=BTN_DARS_QOLDIRISH)],
-            [KeyboardButton(text=BTN_TATIL), KeyboardButton(text=BTN_BUGUNGI)],
-            [KeyboardButton(text=BTN_BALANS), qollanma_tugmasi],
+            [KeyboardButton(text=BTN_BUGUNGI), KeyboardButton(text=BTN_DAVOMAT)],
+            [KeyboardButton(text=BTN_DARS_QOLDIRISH), KeyboardButton(text=BTN_CHIQARISH)],
+            [KeyboardButton(text=BTN_TATIL), KeyboardButton(text=BTN_BALANS),
+             qollanma_tugmasi],
         ],
         resize_keyboard=True,
         is_persistent=True,
@@ -224,5 +226,25 @@ def royxatdan_otish_tanlov(soni: int) -> InlineKeyboardMarkup:
     for i in range(soni):
         kb.button(text=f"{i + 1}-variant", callback_data=f"reg_pick:{i}")
     kb.button(text="❌ Hech biri emas", callback_data="reg_no")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+# --- Talabani chiqarish ---
+
+def chiqarish_talabalar(talabalar: list[dict]) -> InlineKeyboardMarkup:
+    """talabalar — [{"ismi": ...}, ...]"""
+    kb = InlineKeyboardBuilder()
+    for i, t in enumerate(talabalar):
+        kb.button(text=f"👤  {t['ismi']}", callback_data=f"chq_t:{i}")
+    kb.button(text="↩️  Bekor qilish", callback_data="chq_cancel")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def chiqarish_tasdiq() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="✅ Ha, chiqarilsin", callback_data="chq_yes")
+    kb.button(text="↩️ Bekor qilish", callback_data="chq_cancel")
     kb.adjust(1)
     return kb.as_markup()

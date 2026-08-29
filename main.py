@@ -21,7 +21,7 @@ import webserver
 from utils import CHIZIQ
 
 from handlers import (registration, davomat, dars_qoldirish, tatil,
-                      balansim, bugungi, qollanma)
+                      balansim, bugungi, qollanma, talaba_chiqarish)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -107,6 +107,7 @@ async def main():
     dp.include_router(balansim.router)
     dp.include_router(bugungi.router)
     dp.include_router(qollanma.router)
+    dp.include_router(talaba_chiqarish.router)
     dp.include_router(zaxira_router)  # eng oxirida!
 
     scheduler = AsyncIOScheduler()

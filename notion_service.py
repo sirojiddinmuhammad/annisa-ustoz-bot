@@ -274,6 +274,39 @@ def yozilish_chegirmasi_bor_mi(yozilish: dict) -> bool:
     return bool(get_relation_ids(yozilish, "Chegirmalar"))
 
 
+async def yozilishni_yopish(yozilish_id: str, sana: str, sabab: str,
+                             ustoz_ismi: str) -> None:
+    """Talabani guruhdan chiqarish — Yozilish holati "Tugatdi" ga o'tadi va
+    shu kundan boshlab talaba davomat ro'yxatida ko'rinmaydi.
+    Sabab Izohga yoziladi, shunda keyinchalik kursni haqiqatan tugatgan
+    talabalar chiqarilganlardan farqlanadi."""
+    mavjud_izoh = ""
+    try:
+        sahifa = await get_page(yozilish_id)
+        mavjud_izoh = get_rich_text(sahifa, "Izoh")
+    except Exception:
+        pass
+
+    yangi_izoh = f"{ustoz_ismi} chiqardi ({sana}): {sabab}"
+    if mavjud_izoh:
+        yangi_izoh = f"{mavjud_izoh}\n{yangi_izoh}"
+
+    await update_page(yozilish_id, {
+        "Holat": prop_select(config.YOZILISH_TUGATDI),
+        "Tugagan sana": prop_date(sana),
+        "Izoh": {"rich_text": [{"text": {"content": yangi_izoh[:1900]}}]},
+    })
+
+
+async def oxirgi_davomatlar(yozilish_id: str, soni: int = 5) -> list[dict]:
+    """Yozilishning eng oxirgi Davomat yozuvlari — sana bo'yicha, yangisidan
+    boshlab. Ketma-ket kelmagan darslarni sanash uchun ishlatiladi."""
+    filter_ = {"property": "Yozilish", "relation": {"contains": yozilish_id}}
+    sorts = [{"property": "Sana", "direction": "descending"}]
+    natija = await query_all(config.DB_DAVOMAT, filter_, sorts)
+    return natija[:soni]
+
+
 async def get_talaba_ismi(talaba_id: str) -> str:
     page = await get_page(talaba_id)
     return get_title(page, "Ism")

@@ -313,6 +313,19 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
                 chegirma_id=chegirma_id,
             )
 
+    # Ketma-ket kelmagan talabalarni tekshiramiz (yozuvlar saqlangandan keyin)
+    kelmaganlar = [t for t in talabalar if t["holat"] == config.HOLAT_KELMADI]
+    if kelmaganlar:
+        ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
+        ustoz_ismi = ns.get_title(ustoz, "Ism") if ustoz else "Ustoz"
+        for t in kelmaganlar:
+            try:
+                await _kelmagan_darslarni_tekshirish(
+                    t["yozilish_id"], t["ismi"], guruh["nomi"], ustoz_ismi, bot
+                )
+            except Exception:
+                pass  # ogohlantirish ishlamasa ham davomat saqlanishi kerak
+
     if dars_bolgan:
         dars_raqami = await ns.keyingi_dars_raqami(guruh["id"])
         grafik = await ns.get_grafik_yozuv(guruh["id"], sana)
@@ -349,6 +362,43 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
         f"🟠 Sababli: {hisob[config.HOLAT_SABABLI]}"
     )
     await callback.message.answer(hisobot)
+
+
+async def _kelmagan_darslarni_tekshirish(yozilish_id: str, talaba_ismi: str,
+                                          guruh_nomi: str, ustoz_ismi: str,
+                                          bot: Bot) -> None:
+    """Talaba ketma-ket bir necha marta kelmasa adminga xabar beradi.
+
+    Ustoz talabani og'zaki chiqarib yuborishi mumkin — bunda admin bilmay
+    qoladi va talabadan pul yechilib turadi. Bu tekshiruv shuni ushlaydi.
+
+    Xabar faqat AYNAN chegaraga yetganda yuboriladi (masalan 3-darsda), keyingi
+    darslarda takrorlanmaydi — aks holda har dars bezovta qilaveradi.
+    """
+    chegara = config.KELMAGAN_OGOHLANTIRISH
+    oxirgilar = await ns.oxirgi_davomatlar(yozilish_id, soni=chegara)
+
+    if len(oxirgilar) < chegara:
+        return
+    if not all(ns.get_select(d, "Holat") == config.HOLAT_KELMADI for d in oxirgilar):
+        return
+
+    # Chegaradan oshgan bo'lsa — xabar allaqachon berilgan, takrorlamaymiz
+    kengroq = await ns.oxirgi_davomatlar(yozilish_id, soni=chegara + 1)
+    if len(kengroq) > chegara and ns.get_select(kengroq[chegara], "Holat") == config.HOLAT_KELMADI:
+        return
+
+    await bot.send_message(
+        config.ADMIN_ID,
+        f"<b>⚠️  Talaba ketma-ket {chegara} dars kelmadi</b>\n"
+        f"{CHIZIQ}\n"
+        f"Talaba: {html_himoya(talaba_ismi)}\n"
+        f"Guruh: {html_himoya(guruh_nomi)}\n"
+        f"Ustoz: {html_himoya(ustoz_ismi)}\n"
+        f"{CHIZIQ}\n"
+        f"<i>Talaba o'qishni tashlagan bo'lishi mumkin.\n"
+        f"Tekshiring — aks holda undan pul yechilib turadi.</i>"
+    )
 
 
 async def _chegirma_hisobla(yozilish_id: str, guruh_page: dict, sana: str):
