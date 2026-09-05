@@ -10,6 +10,7 @@ from aiogram.fsm.context import FSMContext
 
 import config
 import notion_service as ns
+import admin_xabar
 import keyboards as kb
 from states import Tatil
 from utils import sana_ozbekcha, sana_qisqa, html_himoya, CHIZIQ, bugun
@@ -180,14 +181,13 @@ async def tatil_tasdiqlash(callback: CallbackQuery, state: FSMContext, bot: Bot)
         f"{sana_qisqa(date.fromisoformat(tugash))}\n\n"
         f"Yaxshi dam oling! 🌿"
     )
-    await bot.send_message(
-        config.ADMIN_ID,
-        f"<b>🌴  Ustoz ta'tilga chiqdi</b>\n"
+    await admin_xabar.yuborish(
+                f"<b>🌴  Ustoz ta'tilga chiqdi</b>\n"
         f"{CHIZIQ}\n"
         f"Ustoz: {html_himoya(ustoz_ismi)}\n"
         f"Muddat: {sana_qisqa(date.fromisoformat(boshlanish))} — "
         f"{sana_qisqa(date.fromisoformat(tugash))}"
-    )
+    , bot)
 
 
 async def _bugungi_darslarni_qoldirish(ustoz_id: str, sana: str):
@@ -215,10 +215,9 @@ async def tatilni_erta_tugatish(callback: CallbackQuery, bot: Bot):
         f"{CHIZIQ}\n"
         f"Kunlik eslatmalar tiklandi."
     )
-    await bot.send_message(
-        config.ADMIN_ID,
-        f"🔄  {html_himoya(ns.get_title(ustoz, 'Ism'))} ta'tilini bekor qildi."
-    )
+    await admin_xabar.yuborish(
+                f"🔄  {html_himoya(ns.get_title(ustoz, 'Ism'))} ta'tilini bekor qildi."
+    , bot)
 
 
 @router.callback_query(F.data == "tat_qaytdim")

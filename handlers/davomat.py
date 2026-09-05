@@ -9,6 +9,7 @@ from aiogram.fsm.context import FSMContext
 
 import config
 import notion_service as ns
+import admin_xabar
 import keyboards as kb
 from states import Davomat
 from utils import (sana_ozbekcha, yaqin_kunlar, html_himoya, CHIZIQ,
@@ -124,7 +125,7 @@ def _royxat_matni(guruh: dict, sana: str, soni: int) -> str:
         f"{CHIZIQ}\n"
         f"<b>Qanday ishlaydi</b>\n"
         f"Ism ustiga bosing — holat almashadi:\n"
-        f"✅ Keldi  →  ❌ Kelmadi  →  🟠 Sababli\n\n"
+        f"✅ Keldi  →  ❌ Kelmadi  →  🟠 Ta'til\n\n"
         f"Boshida hamma <b>✅ Keldi</b> turadi.\n"
         f"Faqat kelmaganlarni belgilang.\n"
         f"{CHIZIQ}\n"
@@ -279,6 +280,10 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
     hisob = {config.HOLAT_KELDI: 0, config.HOLAT_KELMADI: 0, config.HOLAT_SABABLI: 0}
     dars_bolgan = False
 
+    # Admin xabarlarida ishlatiladi — sikl ichida qayta-qayta so'ramaymiz
+    ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
+    ustoz_ismi = ns.get_title(ustoz, "Ism") if ustoz else "Ustoz"
+
     for t in talabalar:
         holat = t["holat"]
         hisob[holat] = hisob.get(holat, 0) + 1
@@ -286,15 +291,37 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
         if holat in (config.HOLAT_KELDI, config.HOLAT_KELMADI):
             dars_bolgan = True
 
-        if t["tatilda"] and holat != config.HOLAT_SABABLI:
-            await bot.send_message(
-                config.ADMIN_ID,
-                f"ℹ️  <b>Ta'tildagi talaba darsga keldi</b>\n"
+        # --- Ta'til holati Yozilish bilan sinxronlanadi ---
+        # Ustoz "Ta'til" belgilasa, talaba keyingi darslarda ham ta'tilda
+        # turadi (puli yechilmaydi). "Keldi" belgilasa — o'qishga qaytadi.
+        # Ta'til boshqa guruhlarga ta'sir qilmaydi: faqat shu Yozilish.
+        if holat == config.HOLAT_SABABLI and not t["tatilda"]:
+            await ns.yozilish_holatini_ozgartirish(
+                t["yozilish_id"], config.YOZILISH_TATILDA
+            )
+            await admin_xabar.yuborish(
+                f"🌴  <b>Talaba ta'tilga chiqdi</b>\n"
                 f"{CHIZIQ}\n"
                 f"Talaba: {html_himoya(t['ismi'])}\n"
                 f"Guruh: {html_himoya(guruh['nomi'])}\n"
                 f"Sana: {sana_ozbekcha(date.fromisoformat(sana))}\n"
-                f"Belgilandi: {holat}"
+                f"Belgilagan: {html_himoya(ustoz_ismi)}",
+                bot,
+            )
+
+        elif t["tatilda"] and holat != config.HOLAT_SABABLI:
+            await ns.yozilish_holatini_ozgartirish(
+                t["yozilish_id"], config.YOZILISH_OQIYABDI
+            )
+            await admin_xabar.yuborish(
+                f"↩️  <b>Talaba ta'tildan qaytdi</b>\n"
+                f"{CHIZIQ}\n"
+                f"Talaba: {html_himoya(t['ismi'])}\n"
+                f"Guruh: {html_himoya(guruh['nomi'])}\n"
+                f"Sana: {sana_ozbekcha(date.fromisoformat(sana))}\n"
+                f"Belgilandi: {holat}\n"
+                f"Belgilagan: {html_himoya(ustoz_ismi)}",
+                bot,
             )
 
         qolda_summa = qolda_ustoz = chegirma_id = None
@@ -316,8 +343,6 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
     # Ketma-ket kelmagan talabalarni tekshiramiz (yozuvlar saqlangandan keyin)
     kelmaganlar = [t for t in talabalar if t["holat"] == config.HOLAT_KELMADI]
     if kelmaganlar:
-        ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
-        ustoz_ismi = ns.get_title(ustoz, "Ism") if ustoz else "Ustoz"
         for t in kelmaganlar:
             try:
                 await _kelmagan_darslarni_tekshirish(
@@ -359,7 +384,7 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
         f"{CHIZIQ}\n"
         f"✅ Keldi: {hisob[config.HOLAT_KELDI]}   "
         f"❌ Kelmadi: {hisob[config.HOLAT_KELMADI]}   "
-        f"🟠 Sababli: {hisob[config.HOLAT_SABABLI]}"
+        f"🟠 Ta'til: {hisob[config.HOLAT_SABABLI]}"
     )
     await callback.message.answer(hisobot)
 
@@ -388,9 +413,8 @@ async def _kelmagan_darslarni_tekshirish(yozilish_id: str, talaba_ismi: str,
     if len(kengroq) > chegara and ns.get_select(kengroq[chegara], "Holat") == config.HOLAT_KELMADI:
         return
 
-    await bot.send_message(
-        config.ADMIN_ID,
-        f"<b>⚠️  Talaba ketma-ket {chegara} dars kelmadi</b>\n"
+    await admin_xabar.yuborish(
+                f"<b>⚠️  Talaba ketma-ket {chegara} dars kelmadi</b>\n"
         f"{CHIZIQ}\n"
         f"Talaba: {html_himoya(talaba_ismi)}\n"
         f"Guruh: {html_himoya(guruh_nomi)}\n"
@@ -398,7 +422,7 @@ async def _kelmagan_darslarni_tekshirish(yozilish_id: str, talaba_ismi: str,
         f"{CHIZIQ}\n"
         f"<i>Talaba o'qishni tashlagan bo'lishi mumkin.\n"
         f"Tekshiring — aks holda undan pul yechilib turadi.</i>"
-    )
+    , bot)
 
 
 async def _chegirma_hisobla(yozilish_id: str, guruh_page: dict, sana: str):

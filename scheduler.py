@@ -10,6 +10,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 import config
 import notion_service as ns
+import admin_xabar
 import keyboards as kb
 from utils import (sana_ozbekcha, html_himoya, CHIZIQ,
                    dars_kunlari_raqamga, vaqt_tartibi, bugun,
@@ -173,7 +174,10 @@ async def _oylik_hisob_tekshiruvi(bugun_sana: date):
 
 
 async def kunlik_hisobot(bot: Bot):
-    """Har kuni 23:00 — adminga yig'ma hisobot."""
+    """Har kuni 23:00 — adminga yig'ma hisobot (guruh va ustoz ismi bilan)."""
+    # Telegram xabar uzunligi cheklangan — har bo'limda shuncha qator ko'rsatiladi
+    CHEKLOV = 15
+
     bugun_iso = bugun().isoformat()
 
     filter_otildi = {
@@ -195,19 +199,46 @@ async def kunlik_hisobot(bot: Bot):
     ustozlar = await ns.get_barcha_ustozlar_faol()
     tatildagilar = [u for u in ustozlar if ns.ustoz_tatilda_mi(u, bugun())]
 
+    # Guruh/ustoz nomlari — bitta hisobot ichida kesh orqali, takroriy so'rovsiz
+    kesh: dict = {}
+
+    async def royxat(yozuvlar: list[dict], sabab_bilan: bool = False) -> str:
+        if not yozuvlar:
+            return ""
+        qatorlar = []
+        for y in yozuvlar[:CHEKLOV]:
+            guruh_nomi, ustoz_ismi = await ns.grafik_guruh_va_ustoz(y, kesh)
+            qator = f"     • {html_himoya(guruh_nomi)} — {html_himoya(ustoz_ismi)}"
+            if sabab_bilan:
+                sabab = ns.get_select(y, "Sabab")
+                if sabab:
+                    qator += f"\n       <i>{html_himoya(sabab)}</i>"
+            qatorlar.append(qator)
+        matn = "\n".join(qatorlar)
+        qolgan = len(yozuvlar) - CHEKLOV
+        if qolgan > 0:
+            matn += f"\n     <i>...va yana {qolgan} ta</i>"
+        return matn + "\n"
+
     matn = (
         f"<b>📊  Kunlik hisobot</b>\n"
-        f"{sana_ozbekcha(bugun())}\n"
+        f"<i>{sana_ozbekcha(bugun())}</i>\n"
         f"{CHIZIQ}\n"
-        f"✅  Dars o'tildi:  <b>{len(otildi)}</b>\n"
-        f"🚫  Dars qoldirildi:  <b>{len(qoldirildi)}</b>\n"
-        f"⚠️  Belgilanmagan:  <b>{len(belgilanmagan)}</b>\n"
+        f"✅  <b>Dars o'tildi: {len(otildi)}</b>\n"
     )
+    matn += await royxat(otildi)
+
+    matn += f"\n🚫  <b>Dars qoldirildi: {len(qoldirildi)}</b>\n"
+    matn += await royxat(qoldirildi, sabab_bilan=True)
+
+    matn += f"\n⚠️  <b>Belgilanmagan: {len(belgilanmagan)}</b>\n"
+    matn += await royxat(belgilanmagan)
+
     if tatildagilar:
         ismlar = ", ".join(ns.get_title(u, "Ism") for u in tatildagilar)
         matn += f"{CHIZIQ}\n🌴  Ta'tilda: {html_himoya(ismlar)}"
 
-    await bot.send_message(config.ADMIN_ID, matn)
+    await admin_xabar.yuborish(matn, bot)
 
 
 async def tatil_nazorati(bot: Bot):

@@ -16,6 +16,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 import config
 import notion_service as ns
+import admin_xabar
 import keyboards as kb
 from utils import bugun, html_himoya, CHIZIQ, sana_qisqa
 
@@ -171,9 +172,8 @@ async def tasdiqlandi(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
     # Adminga xabar — balansni ham qo'shishga urinamiz
     balans_matni = await _balans_matni(talaba["talaba_id"])
-    await bot.send_message(
-        config.ADMIN_ID,
-        f"<b>🚪  Talaba guruhdan chiqarildi</b>\n"
+    await admin_xabar.yuborish(
+                f"<b>🚪  Talaba guruhdan chiqarildi</b>\n"
         f"{CHIZIQ}\n"
         f"Talaba: {html_himoya(talaba['ismi'])}\n"
         f"Guruh: {html_himoya(guruh['nomi'])}\n"
@@ -182,7 +182,7 @@ async def tasdiqlandi(callback: CallbackQuery, state: FSMContext, bot: Bot):
         f"Sabab: {html_himoya(sabab)}\n"
         f"{CHIZIQ}\n"
         f"{balans_matni}"
-    )
+    , bot)
 
 
 async def _balans_matni(talaba_id: str) -> str:

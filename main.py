@@ -17,6 +17,7 @@ import config
 import keyboards as kb
 import notion_service as ns
 import scheduler as sch
+import admin_xabar
 import webserver
 from utils import CHIZIQ
 
@@ -29,8 +30,32 @@ logger = logging.getLogger(__name__)
 # Diagnostika va zaxira ushlagichlar uchun alohida router.
 # Diqqat: zaxira ushlagich ENG OXIRIDA ulanishi shart, aks holda u
 # barcha xabarlarni o'zi ushlab qoladi va menyu ishlamay qoladi.
+texnik_router = Router()
 xizmat_router = Router()
 zaxira_router = Router()
+
+TEXNIK_MATN = (
+    "🛠  <b>Texnik ishlar</b>\n"
+    "━━━━━━━━━━━━━━━━━━━\n"
+    "Botga yangilik qo'shilyapti.\n"
+    "Iltimos, 10–15 daqiqadan keyin urinib ko'ring.\n\n"
+    "<i>Noqulaylik uchun uzr.</i>"
+)
+
+
+@texnik_router.message()
+async def texnik_ishlar_xabar(message: Message):
+    """Texnik ishlar rejimida ustozlarga javob. Admin cheklovsiz ishlaydi."""
+    if message.from_user.id == config.ADMIN_ID:
+        return  # admin uchun keyingi routerlarga o'tsin
+    await message.answer(TEXNIK_MATN)
+
+
+@texnik_router.callback_query()
+async def texnik_ishlar_callback(callback):
+    if callback.from_user.id == config.ADMIN_ID:
+        return
+    await callback.answer("Texnik ishlar olib borilmoqda", show_alert=True)
 
 
 @xizmat_router.message(Command("tekshir"))
@@ -53,6 +78,14 @@ async def diagnostika(message: Message):
             f"Qo'llanma: ❌ HTTPS emas\n"
             f"Kiritilgan: <code>{xom[:60]}</code>\n"
         )
+
+    # Admin bot va texnik ishlar holati
+    if config.ADMIN_BOT_TOKEN:
+        matn += "Admin bot: ✅ ulangan\n"
+    else:
+        matn += "Admin bot: ⚪ sozlanmagan (xabarlar shu botdan keladi)\n"
+    if config.TEXNIK_ISHLAR:
+        matn += "🛠  <b>TEXNIK ISHLAR REJIMI YOQILGAN</b>\n"
 
     matn += f"{CHIZIQ}\n"
     bazalar = {
@@ -99,6 +132,10 @@ async def main():
     )
     dp = Dispatcher(storage=MemoryStorage())
 
+    if config.TEXNIK_ISHLAR:
+        logger.warning("TEXNIK ISHLAR REJIMI YOQILGAN — ustozlar botdan foydalana olmaydi")
+        dp.include_router(texnik_router)   # eng oldinda!
+
     dp.include_router(xizmat_router)
     dp.include_router(registration.router)
     dp.include_router(davomat.router)
@@ -111,8 +148,11 @@ async def main():
     dp.include_router(zaxira_router)  # eng oxirida!
 
     scheduler = AsyncIOScheduler()
-    sch.sozlash(scheduler, bot)
-    scheduler.start()
+    if config.TEXNIK_ISHLAR:
+        logger.warning("Kunlik avtomatik vazifalar to'xtatildi (texnik ishlar)")
+    else:
+        sch.sozlash(scheduler, bot)
+        scheduler.start()
 
     # Web server (Mini App uchun) polling bilan parallel ishlaydi
     runner = await webserver.ishga_tushirish()
@@ -122,6 +162,7 @@ async def main():
         await dp.start_polling(bot)
     finally:
         await runner.cleanup()
+        await admin_xabar.yopish()
 
 
 if __name__ == "__main__":

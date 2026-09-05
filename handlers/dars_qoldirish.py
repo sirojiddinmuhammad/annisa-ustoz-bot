@@ -9,6 +9,7 @@ from aiogram.fsm.context import FSMContext
 
 import config
 import notion_service as ns
+import admin_xabar
 import keyboards as kb
 from states import DarsQoldirish
 from utils import (sana_ozbekcha, yaqin_kunlar, html_himoya, CHIZIQ,
@@ -140,7 +141,7 @@ async def izoh_qabul_qilish(message: Message, state: FSMContext, bot: Bot):
     )
     if izoh:
         admin_matn += f"\nIzoh: {html_himoya(izoh)}"
-    await bot.send_message(config.ADMIN_ID, admin_matn)
+    await admin_xabar.yuborish(admin_matn, bot)
 
 
 @router.callback_query(F.data == "dq_hammasi")
@@ -174,13 +175,12 @@ async def barcha_darslarni_qoldirish(callback: CallbackQuery, bot: Bot):
             f"<b>🚫  Bugungi barcha darslar qoldirildi</b>\n"
             f"{CHIZIQ}\n{royxat}"
         )
-        await bot.send_message(
-            config.ADMIN_ID,
-            f"<b>🚫  Barcha darslar qoldirildi</b>\n"
+        await admin_xabar.yuborish(
+                        f"<b>🚫  Barcha darslar qoldirildi</b>\n"
             f"{CHIZIQ}\n"
             f"Ustoz: {html_himoya(ustoz_ismi)}\n"
             f"{royxat}"
-        )
+        , bot)
     else:
         await callback.message.answer(
             "Qoldiriladigan dars topilmadi — hammasiga davomat kiritilgan."

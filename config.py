@@ -9,6 +9,18 @@ BOT_TOKEN = os.environ["BOT_TOKEN"]
 NOTION_TOKEN = os.environ["NOTION_TOKEN"]
 ADMIN_ID = int(os.environ["ADMIN_ID"])
 
+# Admin bot tokeni. Berilsa, adminga ketadigan bildirishnomalar SHU bot
+# nomidan yuboriladi — ustozlar boti chatida aralashib yotmaydi.
+# Bo'sh bo'lsa, xabarlar eskicha ustozlar boti orqali ketadi (bot buzilmaydi).
+# Diqqat: ro'yxatdan o'tish tasdig'i bundan mustasno — uning tugmalari
+# ustozlar botining o'zida ishlashi kerak, shuning uchun u ko'chirilmaydi.
+ADMIN_BOT_TOKEN = os.environ.get("ADMIN_BOT_TOKEN", "").strip()
+
+# Texnik ishlar rejimi. "1" bo'lsa bot ustozlarga javob bermaydi va
+# kunlik avtomatik vazifalar to'xtaydi. Admin cheklovsiz ishlata oladi.
+# Yangilanish (ayniqsa Notion select nomini o'zgartirish) paytida yoqiladi.
+TEXNIK_ISHLAR = os.environ.get("TEXNIK_ISHLAR", "").strip() in ("1", "true", "True", "ha")
+
 # Mini App havolasi. Railway'da domen yaratilgach shu ko'rinishda beriladi:
 #   https://loyiha-nomi.up.railway.app/qollanma
 # Bo'sh bo'lsa bot ishlaydi, faqat qo'llanma tugmasi ogohlantirish beradi.
@@ -52,7 +64,9 @@ KUNLIK_HISOBOT_DAQIQA = 0
 # --- Davomat Holat qiymatlari (Notion select variantlari) ---
 HOLAT_KELDI = "Darsda qatnashdi"
 HOLAT_KELMADI = "Darsga kelmadi"
-HOLAT_SABABLI = "Sababli"
+# Diqqat: bu qiymat Notiondagi Davomat > Holat select varianti bilan
+# AYNAN bir xil bo'lishi shart. O'zgartirilsa, ikkalasi birga o'zgarsin.
+HOLAT_SABABLI = "Ta'til"
 HOLAT_OYLIK_HISOB = "Oylik hisob"
 
 # --- Yozilish Holat qiymatlari ---

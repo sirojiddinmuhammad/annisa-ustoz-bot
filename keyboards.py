@@ -102,7 +102,7 @@ def davomat_royxati(talabalar: list[dict]) -> InlineKeyboardMarkup:
         belgi = HOLAT_BELGISI.get(t["holat"], "✅")
         matn = f"{belgi}  {t['ismi']}"
         if t.get("tatilda") and t["holat"] == config.HOLAT_SABABLI:
-            matn = f"🟠  {t['ismi']} · ta'tilda"
+            matn = f"🟠  {t['ismi']} · ta'tilda"  # Yozilishda ham Ta'tilda
         kb.button(text=matn, callback_data=f"dvm_t:{i}")
     kb.adjust(1)
     kb.row(InlineKeyboardButton(text="💾  Saqlash", callback_data="dvm_save"))

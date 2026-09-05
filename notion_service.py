@@ -274,6 +274,16 @@ def yozilish_chegirmasi_bor_mi(yozilish: dict) -> bool:
     return bool(get_relation_ids(yozilish, "Chegirmalar"))
 
 
+async def yozilish_holatini_ozgartirish(yozilish_id: str, yangi_holat: str) -> None:
+    """Yozilish holatini o'zgartiradi (O'qiyabdi / Ta'tilda).
+
+    Davomatda ustoz "Ta'til" belgilasa — talaba Ta'tilda holatiga o'tadi va
+    keyingi darslarda avtomat shunday belgilanib turadi (puli yechilmaydi).
+    Ustoz "Keldi" belgilasa — O'qiyabdi ga qaytadi.
+    """
+    await update_page(yozilish_id, {"Holat": prop_select(yangi_holat)})
+
+
 async def yozilishni_yopish(yozilish_id: str, sana: str, sabab: str,
                              ustoz_ismi: str) -> None:
     """Talabani guruhdan chiqarish — Yozilish holati "Tugatdi" ga o'tadi va
@@ -525,6 +535,36 @@ async def grafik_belgilanmaganga_qaytarish(guruh_id: str, sana: str) -> None:
             "Holat": prop_select(config.GRAFIK_BELGILANMAGAN),
             "Dars raqami": {"number": None},
         })
+
+
+async def grafik_guruh_va_ustoz(grafik_yozuv: dict, kesh: dict) -> tuple[str, str]:
+    """Darslar grafigi yozuvidan (guruh nomi, ustoz ismi) ni qaytaradi.
+
+    Diqqat: grafikdagi "Ustoz" — rollup, API uni o'qiy olmaydi. Shuning uchun
+    guruh sahifasi orqali olinadi. `kesh` — bitta hisobot ichida bir guruh
+    qayta-qayta so'ralmasligi uchun: {guruh_id: (guruh_nomi, ustoz_ismi)}.
+    """
+    guruh_ids = get_relation_ids(grafik_yozuv, "Guruh")
+    if not guruh_ids:
+        return "(guruhsiz)", "—"
+
+    guruh_id = guruh_ids[0]
+    if guruh_id in kesh:
+        return kesh[guruh_id]
+
+    try:
+        guruh = await get_page(guruh_id)
+        guruh_nomi = get_title(guruh, "Guruh nomi") or "(nomsiz)"
+        ustoz_ismi = "—"
+        ustoz_ids = get_relation_ids(guruh, "Ustoz")
+        if ustoz_ids:
+            ustoz = await get_page(ustoz_ids[0])
+            ustoz_ismi = get_title(ustoz, "Ism") or "—"
+    except Exception:
+        guruh_nomi, ustoz_ismi = "(o'qib bo'lmadi)", "—"
+
+    kesh[guruh_id] = (guruh_nomi, ustoz_ismi)
+    return guruh_nomi, ustoz_ismi
 
 
 async def belgilanmagan_darslar(kun_orqaga: int = config.BELGILANMAGAN_TEKSHIRUV_KUN) -> list[dict]:

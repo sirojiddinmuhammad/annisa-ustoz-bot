@@ -23,7 +23,7 @@ def davomat_sarflangan_va_ustoz_ulushi(davomat: dict, guruh: dict) -> tuple[floa
         sarflangan = ns.get_number(guruh, "Oylik to'lov") or 0
     elif holat in (config.HOLAT_KELDI, config.HOLAT_KELMADI):
         sarflangan = ns.guruh_dars_narxi(guruh)
-    else:  # Sababli
+    else:  # Ta'til — pul yechilmaydi
         sarflangan = 0
 
     if qolda_ustoz_ulushi is not None:
