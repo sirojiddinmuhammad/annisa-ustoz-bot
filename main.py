@@ -22,7 +22,8 @@ import webserver
 from utils import CHIZIQ
 
 from handlers import (registration, davomat, dars_qoldirish, tatil,
-                      balansim, bugungi, qollanma, talaba_chiqarish)
+                      balansim, bugungi, qollanma, talaba_chiqarish,
+                      admin_nomidan)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -86,6 +87,10 @@ async def diagnostika(message: Message):
         matn += "Admin bot: ⚪ sozlanmagan (xabarlar shu botdan keladi)\n"
     if config.TEXNIK_ISHLAR:
         matn += "🛠  <b>TEXNIK ISHLAR REJIMI YOQILGAN</b>\n"
+    import admin_rejim
+    if admin_rejim.rejimda_mi(message.from_user.id):
+        m = admin_rejim.rejim_malumoti(message.from_user.id)
+        matn += f"👤  <b>{m['ismi']}</b> nomidan ishlayapsiz\n"
 
     matn += f"{CHIZIQ}\n"
     bazalar = {
@@ -137,6 +142,7 @@ async def main():
         dp.include_router(texnik_router)   # eng oldinda!
 
     dp.include_router(xizmat_router)
+    dp.include_router(admin_nomidan.router)
     dp.include_router(registration.router)
     dp.include_router(davomat.router)
     dp.include_router(dars_qoldirish.router)

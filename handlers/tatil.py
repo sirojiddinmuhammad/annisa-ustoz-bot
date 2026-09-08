@@ -12,6 +12,8 @@ import config
 import notion_service as ns
 import admin_xabar
 import keyboards as kb
+import admin_rejim
+from admin_rejim import haqiqiy_ustoz
 from states import Tatil
 from utils import sana_ozbekcha, sana_qisqa, html_himoya, CHIZIQ, bugun
 
@@ -34,7 +36,7 @@ def _sanani_parse(matn: str) -> date | None:
 @router.message(F.text == kb.BTN_TATIL)
 async def tatil_boshlash(message: Message, state: FSMContext):
     await state.clear()
-    ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
+    ustoz = await haqiqiy_ustoz(message.from_user.id)
     if not ustoz:
         await message.answer("Siz hali ro'yxatdan o'tmagansiz.\n/start ni bosing.")
         return
@@ -112,7 +114,7 @@ async def qolda_sana_qabul(message: Message, state: FSMContext):
     data = await state.get_data()
     boshlanish_iso = data.get("boshlanish")
     if not boshlanish_iso:
-        ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
+        ustoz = await haqiqiy_ustoz(message.from_user.id)
         mavjud = ns.get_date_start(ustoz, "Ta'til boshlanishi") if ustoz else None
         if not mavjud:
             await message.answer("Xatolik yuz berdi. /start bilan qaytadan urinib ko'ring.")
@@ -165,7 +167,7 @@ async def tatil_tasdiqlash(callback: CallbackQuery, state: FSMContext, bot: Bot)
     tugash = data["tugash"]
 
     await callback.answer("Saqlanmoqda...")
-    ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
+    ustoz = await haqiqiy_ustoz(callback.from_user.id)
     await ns.set_ustoz_tatil(ustoz["id"], boshlanish, tugash)
 
     bugun_sana = bugun()
@@ -180,6 +182,13 @@ async def tatil_tasdiqlash(callback: CallbackQuery, state: FSMContext, bot: Bot)
         f"{sana_qisqa(date.fromisoformat(boshlanish))} — "
         f"{sana_qisqa(date.fromisoformat(tugash))}\n\n"
         f"Yaxshi dam oling! 🌿"
+    )
+    await admin_rejim.ustozni_ogohlantirish(
+        callback.from_user.id,
+        f"🌴  Sizga ta'til belgilandi:\n"
+        f"{sana_qisqa(date.fromisoformat(boshlanish))} — "
+        f"{sana_qisqa(date.fromisoformat(tugash))}",
+        bot,
     )
     await admin_xabar.yuborish(
                 f"<b>🌴  Ustoz ta'tilga chiqdi</b>\n"
@@ -208,7 +217,7 @@ async def _bugungi_darslarni_qoldirish(ustoz_id: str, sana: str):
 
 @router.callback_query(F.data == "tat_bekor")
 async def tatilni_erta_tugatish(callback: CallbackQuery, bot: Bot):
-    ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
+    ustoz = await haqiqiy_ustoz(callback.from_user.id)
     await ns.clear_ustoz_tatil(ustoz["id"])
     await callback.message.edit_text(
         f"<b>🔄  Ta'til bekor qilindi</b>\n"
@@ -222,7 +231,7 @@ async def tatilni_erta_tugatish(callback: CallbackQuery, bot: Bot):
 
 @router.callback_query(F.data == "tat_qaytdim")
 async def tatildan_qaytish(callback: CallbackQuery):
-    ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
+    ustoz = await haqiqiy_ustoz(callback.from_user.id)
     await ns.clear_ustoz_tatil(ustoz["id"])
     await callback.message.edit_text(
         f"<b>✅  Xush kelibsiz!</b>\n"
@@ -233,7 +242,7 @@ async def tatildan_qaytish(callback: CallbackQuery):
 
 @router.callback_query(F.data == "tat_uzaytirish")
 async def tatilni_uzaytirish(callback: CallbackQuery, state: FSMContext):
-    ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
+    ustoz = await haqiqiy_ustoz(callback.from_user.id)
     mavjud = ns.get_date_start(ustoz, "Ta'til boshlanishi")
     tugash = ns.get_date_start(ustoz, "Ta'til tugashi")
     if not mavjud or not tugash:

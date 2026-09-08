@@ -567,6 +567,34 @@ async def grafik_guruh_va_ustoz(grafik_yozuv: dict, kesh: dict) -> tuple[str, st
     return guruh_nomi, ustoz_ismi
 
 
+async def grafik_sanani_kochirish(grafik_page_id: str, yangi_sana: str,
+                                   rejadagi_sana: str, guruh_nomi: str) -> None:
+    """Dars boshqa kunga ko'chirilganda mavjud grafik yozuvini yangilaydi.
+
+    Yangi yozuv YARATILMAYDI — aks holda eski kun abadiy "Belgilanmagan"
+    bo'lib qolib, har kuni eslatmada chiqaverardi.
+
+    Sana → haqiqiy o'tilgan kun, Rejadagi sana → asl reja kuni.
+    """
+    mavjud_izoh = ""
+    try:
+        sahifa = await get_page(grafik_page_id)
+        mavjud_izoh = get_rich_text(sahifa, "Izoh")
+    except Exception:
+        pass
+
+    izoh = f"Dars {rejadagi_sana} dan {yangi_sana} ga ko'chirildi"
+    if mavjud_izoh:
+        izoh = f"{mavjud_izoh}\n{izoh}"
+
+    await update_page(grafik_page_id, {
+        "Nomi": prop_title(f"{guruh_nomi} — {yangi_sana}"),
+        "Sana": prop_date(yangi_sana),
+        "Rejadagi sana": prop_date(rejadagi_sana),
+        "Izoh": {"rich_text": [{"text": {"content": izoh[:1900]}}]},
+    })
+
+
 async def belgilanmagan_darslar(kun_orqaga: int = config.BELGILANMAGAN_TEKSHIRUV_KUN) -> list[dict]:
     chegara = (bugun() - timedelta(days=kun_orqaga)).isoformat()
     filter_ = {

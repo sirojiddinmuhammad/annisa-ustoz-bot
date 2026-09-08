@@ -10,6 +10,8 @@ from aiogram.fsm.context import FSMContext
 import config
 import notion_service as ns
 import keyboards as kb
+import admin_rejim
+from admin_rejim import haqiqiy_ustoz
 from utils import (sana_ozbekcha, html_himoya, CHIZIQ,
                    dars_kunlari_raqamga, vaqt_tartibi, bugun,
                    belgilanmagan_royxat_matni)
@@ -32,7 +34,7 @@ HOLAT_MATNI = {
 @router.message(F.text == kb.BTN_BUGUNGI)
 async def bugungi_darslar(message: Message, state: FSMContext):
     await state.clear()
-    ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
+    ustoz = await haqiqiy_ustoz(message.from_user.id)
     if not ustoz:
         await message.answer("Siz hali ro'yxatdan o'tmagansiz.\n/start ni bosing.")
         return
@@ -43,9 +45,13 @@ async def bugungi_darslar(message: Message, state: FSMContext):
     bugun_iso = bugun_sana.isoformat()
     kun_idx = bugun_sana.weekday()
 
-    guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=True)
+    # Davomatsiz guruhlar ham ko'rsatiladi — ustoz jadvalini to'liq ko'rsin.
+    # Ular alohida belgilanadi va davomat kiritish talab qilinmaydi.
+    hammasi = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=False)
+    guruhlar = [g for g in hammasi if not ns.get_checkbox(g, "Davomat kerak emas")]
+
     bugungi = []
-    for g in guruhlar:
+    for g in hammasi:
         kunlari = dars_kunlari_raqamga(ns.get_multi_select(g, "Dars kunlari"))
         if kun_idx in kunlari:
             bugungi.append(g)
@@ -66,15 +72,25 @@ async def bugungi_darslar(message: Message, state: FSMContext):
         for g in bugungi:
             nomi = ns.get_title(g, "Guruh nomi")
             vaqt = ns.get_select(g, "Dars vaqti") or "vaqti belgilanmagan"
+
+            if ns.get_checkbox(g, "Davomat kerak emas"):
+                # Oylik to'lovli guruh — davomat kiritilmaydi, grafik ham yuritilmaydi
+                matn += (
+                    f"🕐{html_himoya(vaqt)}\u00a0·  "
+                    f"📚<b>{html_himoya(nomi)}</b>\u00a0·  "
+                    f"💠<i>Davomat shart emas</i>\n\n"
+                )
+                continue
+
             grafik = await ns.get_grafik_yozuv(g["id"], bugun_iso)
             holat = ns.get_select(grafik, "Holat") if grafik else config.GRAFIK_BELGILANMAGAN
             belgi = HOLAT_BELGISI.get(holat, "⏳")
             izoh = HOLAT_MATNI.get(holat, holat)
 
             matn += (
-                f"\n🕐  <b>{html_himoya(vaqt)}</b>\n"
-                f"📚  {html_himoya(nomi)}\n"
-                f"{belgi}  <i>{izoh}</i>\n"
+                f"🕐{html_himoya(vaqt)}\u00a0·  "
+                f"📚<b>{html_himoya(nomi)}</b>\u00a0·  "
+                f"{belgi}<i>{izoh}</i>\n\n"
             )
             if holat == config.GRAFIK_BELGILANMAGAN:
                 kutilmoqda += 1
@@ -95,7 +111,7 @@ async def bugungi_darslar(message: Message, state: FSMContext):
             f"⚠️  <b>Belgilanmagan darslar: {len(ozimizniki)} ta</b>\n"
             f"<i>Oxirgi {config.BELGILANMAGAN_TEKSHIRUV_KUN} kun ichida</i>\n"
             + belgilanmagan_royxat_matni(ozimizniki, ns)
-            + "\n\n<i>Davomat bo'limidan o'sha kunni tanlab kiriting.</i>"
+            + "\n\n<i>Dars o'tilgan bo'lsa — «📋 Davomat kiritish» dan\no'sha kunni tanlab kiriting.\nDars bo'lmagan bo'lsa — «🚫 Dars qoldirish» dan belgilang.</i>"
         )
 
     markup = kb.barcha_darslarni_qoldirish() if kutilmoqda > 1 else None

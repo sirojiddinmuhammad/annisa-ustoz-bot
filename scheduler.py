@@ -2,6 +2,7 @@
 # Kunlik avtomatik vazifalar: 02:20 ertalabki eslatma, 23:00 kunlik hisobot,
 # oylik hisob (davomatsiz guruhlar) va ta'til nazorati.
 
+import calendar
 from datetime import date, timedelta
 
 from aiogram import Bot
@@ -59,21 +60,34 @@ async def ertalabki_eslatma(bot: Bot):
         if ns.ustoz_tatilda_mi(ustoz, bugun_sana):
             continue  # ta'tildagi ustozga eslatma yuborilmaydi
 
-        davomatli_guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=True)
-        if not davomatli_guruhlar:
+        # Davomatsiz guruhlar ham eslatmaga kiradi — ustoz jadvalini to'liq
+        # ko'rsin. Lekin ular uchun Darslar grafigiga yozuv OCHILMAYDI,
+        # chunki u yerda davomat kiritilmaydi va "Belgilanmagan" bo'lib
+        # abadiy osilib qolardi.
+        hammasi = await ns.get_ustoz_faol_guruhlari(ustoz["id"], davomatli_faqat=False)
+        if not hammasi:
             continue  # umuman guruhi yo'q ustozga bo'sh eslatma yuborilmaydi
 
+        davomatli_guruhlar = [
+            g for g in hammasi if not ns.get_checkbox(g, "Davomat kerak emas")
+        ]
+
         bugungi = []
-        for g in davomatli_guruhlar:
+        for g in hammasi:
             kunlari = dars_kunlari_raqamga(ns.get_multi_select(g, "Dars kunlari"))
-            if bugungi_kun_idx in kunlari:
-                bugungi.append(g)
-                grafik = await ns.get_grafik_yozuv(g["id"], bugun_iso)
-                if not grafik:
-                    await ns.grafik_yaratish(
-                        g["id"], bugun_iso, config.GRAFIK_BELGILANMAGAN,
-                        guruh_nomi=ns.get_title(g, "Guruh nomi"),
-                    )
+            if bugungi_kun_idx not in kunlari:
+                continue
+            bugungi.append(g)
+
+            if ns.get_checkbox(g, "Davomat kerak emas"):
+                continue  # grafik yuritilmaydi
+
+            grafik = await ns.get_grafik_yozuv(g["id"], bugun_iso)
+            if not grafik:
+                await ns.grafik_yaratish(
+                    g["id"], bugun_iso, config.GRAFIK_BELGILANMAGAN,
+                    guruh_nomi=ns.get_title(g, "Guruh nomi"),
+                )
 
         # Belgilanmagan darslarni oldindan olamiz — bugun darsi bo'lmasa ham
         # ogohlantirish yuborilishi kerak.
@@ -95,10 +109,13 @@ async def ertalabki_eslatma(bot: Bot):
             bugungi.sort(key=lambda x: vaqt_tartibi(ns.get_select(x, "Dars vaqti")))
             for g in bugungi:
                 vaqt = ns.get_select(g, "Dars vaqti") or "vaqti belgilanmagan"
-                matn += (
-                    f"\n🕐  <b>{html_himoya(vaqt)}</b>\n"
-                    f"📚  {html_himoya(ns.get_title(g, 'Guruh nomi'))}\n"
+                qator = (
+                    f"🕐{html_himoya(vaqt)}\u00a0·  "
+                    f"📚<b>{html_himoya(ns.get_title(g, 'Guruh nomi'))}</b>"
                 )
+                if ns.get_checkbox(g, "Davomat kerak emas"):
+                    qator += "\u00a0·  💠<i>Davomat shart emas</i>"
+                matn += qator + "\n\n"
             matn += f"{CHIZIQ}\nDars tugagach davomat kiriting 👇"
         else:
             matn += "🌿  Bugun darsingiz yo'q."
@@ -108,7 +125,7 @@ async def ertalabki_eslatma(bot: Bot):
                 f"<b>⚠️  Belgilanmagan darslar: {len(ozimizniki)} ta</b>\n"
                 f"{CHIZIQ}\n"
                 + belgilanmagan_royxat_matni(ozimizniki, ns)
-                + "\n\n<i>Davomat bo'limidan o'sha kunni tanlab kiriting.</i>\n\n"
+                + "\n\n<i>Dars o'tilgan bo'lsa — «📋 Davomat kiritish» dan\no'sha kunni tanlab kiriting.\nDars bo'lmagan bo'lsa — «🚫 Dars qoldirish» dan belgilang.</i>\n\n"
             ) + matn
 
         try:
@@ -142,7 +159,16 @@ async def _oylik_hisob_tekshiruvi(bugun_sana: date):
                 continue
             boshlagan_sana = date.fromisoformat(boshlagan[:10])
 
-            if boshlagan_sana.day != bugun_sana.day:
+            # Oyning oxirgi kuni muammosi: talaba 31-sanada boshlagan bo'lsa,
+            # fevralda 31-kun yo'q — bunday oy butunlay o'tkazib yuborilardi.
+            # Yechim: kerakli kun oyning oxirgi kunidan katta bo'lsa,
+            # hisob oyning OXIRGI kunida bajariladi.
+            oyning_oxirgi_kuni = calendar.monthrange(
+                bugun_sana.year, bugun_sana.month
+            )[1]
+            kerakli_kun = min(boshlagan_sana.day, oyning_oxirgi_kuni)
+
+            if bugun_sana.day != kerakli_kun:
                 continue
 
             # Shu oyda allaqachon "Oylik hisob" yozilganmi?

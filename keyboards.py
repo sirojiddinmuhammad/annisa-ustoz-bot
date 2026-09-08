@@ -96,7 +96,8 @@ HOLAT_BELGISI = {
 }
 
 
-def davomat_royxati(talabalar: list[dict]) -> InlineKeyboardMarkup:
+def davomat_royxati(talabalar: list[dict],
+                      sana_ozgartirish: bool = False) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     for i, t in enumerate(talabalar):
         belgi = HOLAT_BELGISI.get(t["holat"], "✅")
@@ -106,6 +107,9 @@ def davomat_royxati(talabalar: list[dict]) -> InlineKeyboardMarkup:
         kb.button(text=matn, callback_data=f"dvm_t:{i}")
     kb.adjust(1)
     kb.row(InlineKeyboardButton(text="💾  Saqlash", callback_data="dvm_save"))
+    if sana_ozgartirish:
+        kb.row(InlineKeyboardButton(text="📅  Sanani o'zgartirish",
+                                     callback_data="dvm_sana_ozg"))
     return kb.as_markup()
 
 
@@ -246,5 +250,43 @@ def chiqarish_tasdiq() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.button(text="✅ Ha, chiqarilsin", callback_data="chq_yes")
     kb.button(text="↩️ Bekor qilish", callback_data="chq_cancel")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+# --- Oylik so'rash ---
+
+def oylik_sorash() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="💸  Oylik so'rash", callback_data="oylik_sora")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+# --- Dars sanasini ko'chirish ---
+
+def sana_kochirish_tugmasi() -> InlineKeyboardButton:
+    return InlineKeyboardButton(text="📅  Sanani o'zgartirish",
+                                 callback_data="dvm_sana_ozg")
+
+
+def kochirish_sanalari(sanalar: list[dict]) -> InlineKeyboardMarkup:
+    """sanalar — [{"label": ..., "value": iso}, ...]"""
+    kb = InlineKeyboardBuilder()
+    for i, s in enumerate(sanalar):
+        kb.button(text=s["label"], callback_data=f"dvm_koch:{i}")
+    kb.button(text="↩️  Bekor qilish", callback_data="dvm_koch_bekor")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+# --- Admin: ustoz nomidan ishlash ---
+
+def ustozlar_royxati(ustozlar: list[dict]) -> InlineKeyboardMarkup:
+    """ustozlar — [{"ismi": ...}, ...]"""
+    kb = InlineKeyboardBuilder()
+    for i, u in enumerate(ustozlar):
+        kb.button(text=f"👤  {u['ismi']}", callback_data=f"nom_u:{i}")
+    kb.button(text="↩️  Bekor qilish", callback_data="nom_bekor")
     kb.adjust(1)
     return kb.as_markup()

@@ -143,3 +143,25 @@ def belgilanmagan_royxat_matni(yozuvlar: list[dict], ns_modul, cheklov: int = 8)
     if qolgan > 0:
         matn += f"\n     <i>...va yana {qolgan} ta</i>"
     return matn
+
+
+def kochirish_sanalari(rejadagi: date, dars_kunlari: list[int]) -> list[date]:
+    """Dars ko'chirilishi mumkin bo'lgan sanalar.
+
+    Rejadagi kundan KEYINGI, keyingi darsgacha bo'lgan barcha kunlar.
+    Masalan dars seshanba (8-sent) va juma (11-sent) bo'lsa, 8-sent uchun
+    9- va 10-sentabr qaytadi.
+
+    Faqat oldinga suriladi — orqaga ko'chirish ko'zda tutilmagan.
+    Kelajakdagi sanalar ham chiqadi (ustoz oldindan belgilashi mumkin).
+    """
+    natija = []
+    kun = rejadagi + timedelta(days=1)
+    urinish = 0
+    while urinish < 14:
+        if dars_kunlari and kun.weekday() in dars_kunlari:
+            break  # keyingi darsga yetdik — to'xtaymiz
+        natija.append(kun)
+        kun += timedelta(days=1)
+        urinish += 1
+    return natija

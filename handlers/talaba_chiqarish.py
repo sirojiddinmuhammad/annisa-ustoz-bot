@@ -18,6 +18,8 @@ import config
 import notion_service as ns
 import admin_xabar
 import keyboards as kb
+import admin_rejim
+from admin_rejim import haqiqiy_ustoz
 from utils import bugun, html_himoya, CHIZIQ, sana_qisqa
 
 router = Router()
@@ -33,7 +35,7 @@ class Chiqarish(StatesGroup):
 @router.message(F.text == kb.BTN_CHIQARISH)
 async def boshlash(message: Message, state: FSMContext):
     await state.clear()
-    ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
+    ustoz = await haqiqiy_ustoz(message.from_user.id)
     if not ustoz:
         await message.answer("Siz hali ro'yxatdan o'tmagansiz.\n/start ni bosing.")
         return
@@ -52,7 +54,8 @@ async def boshlash(message: Message, state: FSMContext):
                              ustoz_ismi=ns.get_title(ustoz, "Ism"))
     await state.set_state(Chiqarish.guruh_tanlash)
     await message.answer(
-        f"<b>🚪  Talabani chiqarish</b>\n"
+        admin_rejim.sarlavha(message.from_user.id)
+        + f"<b>🚪  Talabani chiqarish</b>\n"
         f"{CHIZIQ}\n"
         f"Talaba guruhdan chiqarilsa, davomat ro'yxatida\n"
         f"ko'rinmaydi va undan pul yechilmaydi.\n\n"
@@ -168,6 +171,14 @@ async def tasdiqlandi(callback: CallbackQuery, state: FSMContext, bot: Bot):
         f"📚  {html_himoya(guruh['nomi'])}\n"
         f"📅  {sana_qisqa(bugun())}\n\n"
         f"Talaba endi davomat ro'yxatida ko'rinmaydi."
+    )
+
+    await admin_rejim.ustozni_ogohlantirish(
+        callback.from_user.id,
+        f"🚪  <b>{html_himoya(talaba['ismi'])}</b>\n"
+        f"{html_himoya(guruh['nomi'])} guruhidan chiqarildi.\n"
+        f"Sabab: {html_himoya(sabab)}",
+        bot,
     )
 
     # Adminga xabar — balansni ham qo'shishga urinamiz

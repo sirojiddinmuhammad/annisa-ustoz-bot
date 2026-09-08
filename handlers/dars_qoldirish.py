@@ -11,6 +11,8 @@ import config
 import notion_service as ns
 import admin_xabar
 import keyboards as kb
+import admin_rejim
+from admin_rejim import haqiqiy_ustoz
 from states import DarsQoldirish
 from utils import (sana_ozbekcha, yaqin_kunlar, html_himoya, CHIZIQ,
                    dars_kunlari_raqamga, bugun)
@@ -21,7 +23,7 @@ router = Router()
 @router.message(F.text == kb.BTN_DARS_QOLDIRISH)
 async def boshlash(message: Message, state: FSMContext):
     await state.clear()
-    ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
+    ustoz = await haqiqiy_ustoz(message.from_user.id)
     if not ustoz:
         await message.answer("Siz hali ro'yxatdan o'tmagansiz.\n/start ni bosing.")
         return
@@ -39,7 +41,8 @@ async def boshlash(message: Message, state: FSMContext):
     await state.update_data(guruhlar=guruh_royxati)
     await state.set_state(DarsQoldirish.guruh_tanlash)
     await message.answer(
-        f"<b>🚫  Dars qoldirish</b>\n"
+        admin_rejim.sarlavha(message.from_user.id)
+        + f"<b>🚫  Dars qoldirish</b>\n"
         f"{CHIZIQ}\n"
         f"Qaysi guruhning darsi qoldiriladi?",
         reply_markup=kb.guruhlar_royxati(guruh_royxati, "dq"),
@@ -119,7 +122,7 @@ async def izoh_qabul_qilish(message: Message, state: FSMContext, bot: Bot):
         await ns.grafik_yaratish(guruh["id"], sana, config.GRAFIK_DARS_QOLDIRILDI,
                                   sabab=sabab, izoh=izoh, guruh_nomi=guruh["nomi"])
 
-    ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
+    ustoz = await haqiqiy_ustoz(message.from_user.id)
     ustoz_ismi = ns.get_title(ustoz, "Ism") if ustoz else "Ustoz"
 
     await state.clear()
@@ -143,10 +146,18 @@ async def izoh_qabul_qilish(message: Message, state: FSMContext, bot: Bot):
         admin_matn += f"\nIzoh: {html_himoya(izoh)}"
     await admin_xabar.yuborish(admin_matn, bot)
 
+    await admin_rejim.ustozni_ogohlantirish(
+        message.from_user.id,
+        f"🚫  <b>{html_himoya(guruh['nomi'])}</b> guruhining\n"
+        f"{sana_ozbekcha(date.fromisoformat(sana))} kungi darsi qoldirildi.\n"
+        f"Sabab: {html_himoya(sabab)}",
+        bot,
+    )
+
 
 @router.callback_query(F.data == "dq_hammasi")
 async def barcha_darslarni_qoldirish(callback: CallbackQuery, bot: Bot):
-    ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
+    ustoz = await haqiqiy_ustoz(callback.from_user.id)
     if not ustoz:
         return
 

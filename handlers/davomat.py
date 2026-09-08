@@ -11,9 +11,11 @@ import config
 import notion_service as ns
 import admin_xabar
 import keyboards as kb
+import admin_rejim
+from admin_rejim import haqiqiy_ustoz
 from states import Davomat
 from utils import (sana_ozbekcha, yaqin_kunlar, html_himoya, CHIZIQ,
-                   dars_kunlari_raqamga)
+                   dars_kunlari_raqamga, kochirish_sanalari, bugun)
 
 router = Router()
 
@@ -23,7 +25,7 @@ HOLAT_KETMA_KET = [config.HOLAT_KELDI, config.HOLAT_KELMADI, config.HOLAT_SABABL
 @router.message(F.text == kb.BTN_DAVOMAT)
 async def davomat_boshlash(message: Message, state: FSMContext):
     await state.clear()
-    ustoz = await ns.find_ustoz_by_telegram_id(message.from_user.id)
+    ustoz = await haqiqiy_ustoz(message.from_user.id)
     if not ustoz:
         await message.answer("Siz hali ro'yxatdan o'tmagansiz.\n/start ni bosing.")
         return
@@ -41,7 +43,8 @@ async def davomat_boshlash(message: Message, state: FSMContext):
     await state.update_data(guruhlar=guruh_royxati)
     await state.set_state(Davomat.guruh_tanlash)
     await message.answer(
-        "<b>📋  Davomat</b>\n"
+        admin_rejim.sarlavha(message.from_user.id)
+        + "<b>📋  Davomat</b>\n"
         f"{CHIZIQ}\n"
         "Qaysi guruhga davomat kiritasiz?",
         reply_markup=kb.guruhlar_royxati(guruh_royxati, "dvm"),
@@ -114,14 +117,23 @@ async def _davomat_ekranini_ochish(callback: CallbackQuery, state: FSMContext,
 
     await state.update_data(talabalar=talabalar)
     await state.set_state(Davomat.royxat_korish)
-    await callback.message.edit_text(_royxat_matni(guruh, sana, len(talabalar)),
-                                      reply_markup=kb.davomat_royxati(talabalar))
+    await callback.message.edit_text(
+        _royxat_matni(guruh, sana, len(talabalar), data_sana_ozgargan=False),
+        reply_markup=kb.davomat_royxati(talabalar, sana_ozgartirish=True),
+    )
 
 
-def _royxat_matni(guruh: dict, sana: str, soni: int) -> str:
+def _royxat_matni(guruh: dict, sana: str, soni: int,
+                   data_sana_ozgargan: bool = False,
+                   rejadagi: str | None = None) -> str:
+    sana_qatori = f"📅  {sana_ozbekcha(date.fromisoformat(sana))}"
+    if data_sana_ozgargan and rejadagi:
+        sana_qatori += (
+            f"\n📌  <i>Rejada: {sana_ozbekcha(date.fromisoformat(rejadagi))}</i>"
+        )
     return (
         f"<b>📚  {html_himoya(guruh['nomi'])}</b>\n"
-        f"📅  {sana_ozbekcha(date.fromisoformat(sana))}\n"
+        f"{sana_qatori}\n"
         f"{CHIZIQ}\n"
         f"<b>Qanday ishlaydi</b>\n"
         f"Ism ustiga bosing — holat almashadi:\n"
@@ -253,6 +265,65 @@ async def ochirish_tasdiqlandi(callback: CallbackQuery, state: FSMContext):
     )
 
 
+
+@router.callback_query(Davomat.royxat_korish, F.data == "dvm_sana_ozg")
+async def sana_ozgartirish_sorash(callback: CallbackQuery, state: FSMContext):
+    """Dars boshqa kunga ko'chirilgan bo'lsa, haqiqiy sanani tanlash."""
+    data = await state.get_data()
+    guruh = data["tanlangan_guruh"]
+    rejadagi = data.get("rejadagi_sana") or data["tanlangan_sana"]
+
+    guruh_page = await ns.get_page(guruh["id"])
+    kunlari = dars_kunlari_raqamga(ns.get_multi_select(guruh_page, "Dars kunlari"))
+    sanalar = kochirish_sanalari(date.fromisoformat(rejadagi), kunlari)
+
+    if not sanalar:
+        await callback.answer("Ko'chirish uchun bo'sh kun yo'q.", show_alert=True)
+        return
+
+    royxat = [{"label": sana_ozbekcha(d), "value": d.isoformat()} for d in sanalar]
+    await state.update_data(kochirish_royxati=royxat, rejadagi_sana=rejadagi)
+    await callback.message.edit_text(
+        f"<b>📅  Dars qaysi kuni o'tildi?</b>\n"
+        f"{CHIZIQ}\n"
+        f"📚  {html_himoya(guruh['nomi'])}\n"
+        f"📌  Rejadagi kun: {sana_ozbekcha(date.fromisoformat(rejadagi))}\n"
+        f"{CHIZIQ}\n"
+        f"<i>Keyingi darsgacha bo'lgan kunlar:</i>",
+        reply_markup=kb.kochirish_sanalari(royxat),
+    )
+
+
+@router.callback_query(Davomat.royxat_korish, F.data.startswith("dvm_koch:"))
+async def sana_kochirildi(callback: CallbackQuery, state: FSMContext):
+    idx = int(callback.data.split(":")[1])
+    data = await state.get_data()
+    yangi_sana = data["kochirish_royxati"][idx]["value"]
+    guruh = data["tanlangan_guruh"]
+    rejadagi = data["rejadagi_sana"]
+
+    await state.update_data(tanlangan_sana=yangi_sana, sana_kochirildi=True)
+    await callback.message.edit_text(
+        _royxat_matni(guruh, yangi_sana, len(data["talabalar"]),
+                       data_sana_ozgargan=True, rejadagi=rejadagi),
+        reply_markup=kb.davomat_royxati(data["talabalar"], sana_ozgartirish=True),
+    )
+
+
+@router.callback_query(Davomat.royxat_korish, F.data == "dvm_koch_bekor")
+async def sana_kochirish_bekor(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    guruh = data["tanlangan_guruh"]
+    sana = data["tanlangan_sana"]
+    kochirildi = data.get("sana_kochirildi", False)
+    await callback.message.edit_text(
+        _royxat_matni(guruh, sana, len(data["talabalar"]),
+                       data_sana_ozgargan=kochirildi,
+                       rejadagi=data.get("rejadagi_sana")),
+        reply_markup=kb.davomat_royxati(data["talabalar"], sana_ozgartirish=True),
+    )
+
+
 @router.callback_query(Davomat.royxat_korish, F.data.startswith("dvm_t:"))
 async def holat_almashtirish(callback: CallbackQuery, state: FSMContext):
     idx = int(callback.data.split(":")[1])
@@ -281,7 +352,7 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
     dars_bolgan = False
 
     # Admin xabarlarida ishlatiladi — sikl ichida qayta-qayta so'ramaymiz
-    ustoz = await ns.find_ustoz_by_telegram_id(callback.from_user.id)
+    ustoz = await haqiqiy_ustoz(callback.from_user.id)
     ustoz_ismi = ns.get_title(ustoz, "Ism") if ustoz else "Ustoz"
 
     for t in talabalar:
@@ -353,12 +424,40 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
     if dars_bolgan:
         dars_raqami = await ns.keyingi_dars_raqami(guruh["id"])
-        grafik = await ns.get_grafik_yozuv(guruh["id"], sana)
-        if grafik:
-            await ns.grafik_yangilash(grafik["id"], config.GRAFIK_DARS_OTILDI, dars_raqami)
+        rejadagi = data.get("rejadagi_sana")
+        kochirildi = data.get("sana_kochirildi", False)
+
+        if kochirildi and rejadagi and rejadagi != sana:
+            # Dars boshqa kunga ko'chirilgan. YANGI yozuv yaratmaymiz —
+            # rejadagi kundagi mavjud yozuvni ko'chiramiz. Aks holda eski kun
+            # abadiy "Belgilanmagan" bo'lib qolib, eslatmada chiqaverardi.
+            eski = await ns.get_grafik_yozuv(guruh["id"], rejadagi)
+            if eski:
+                await ns.grafik_sanani_kochirish(
+                    eski["id"], sana, rejadagi, guruh["nomi"]
+                )
+                await ns.grafik_yangilash(eski["id"], config.GRAFIK_DARS_OTILDI,
+                                           dars_raqami)
+            else:
+                await ns.grafik_yaratish(guruh["id"], sana, config.GRAFIK_DARS_OTILDI,
+                                          dars_raqami, guruh_nomi=guruh["nomi"])
+
+            await admin_xabar.yuborish(
+                f"<b>📅  Dars boshqa kunga ko'chirildi</b>\n"
+                f"{CHIZIQ}\n"
+                f"Guruh: {html_himoya(guruh['nomi'])}\n"
+                f"Ustoz: {html_himoya(ustoz_ismi)}\n"
+                f"Rejada: {sana_ozbekcha(date.fromisoformat(rejadagi))}\n"
+                f"O'tildi: {sana_ozbekcha(date.fromisoformat(sana))}",
+                bot,
+            )
         else:
-            await ns.grafik_yaratish(guruh["id"], sana, config.GRAFIK_DARS_OTILDI,
-                                      dars_raqami, guruh_nomi=guruh["nomi"])
+            grafik = await ns.get_grafik_yozuv(guruh["id"], sana)
+            if grafik:
+                await ns.grafik_yangilash(grafik["id"], config.GRAFIK_DARS_OTILDI, dars_raqami)
+            else:
+                await ns.grafik_yaratish(guruh["id"], sana, config.GRAFIK_DARS_OTILDI,
+                                          dars_raqami, guruh_nomi=guruh["nomi"])
 
     await state.clear()
 
@@ -369,6 +468,17 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
         f"📚  {html_himoya(guruh['nomi'])}\n"
         f"📅  {sana_ozbekcha(date.fromisoformat(sana))}\n\n"
         f"👇  Quyidagi xabarni guruhga yuborishingiz mumkin."
+    )
+
+    # Admin ustoz nomidan ishlagan bo'lsa — ustozning o'ziga xabar
+    await admin_rejim.ustozni_ogohlantirish(
+        callback.from_user.id,
+        f"📋  <b>{html_himoya(guruh['nomi'])}</b> guruhiga\n"
+        f"{sana_ozbekcha(date.fromisoformat(sana))} kuni davomat kiritildi.\n\n"
+        f"✅ {hisob[config.HOLAT_KELDI]}   "
+        f"❌ {hisob[config.HOLAT_KELMADI]}   "
+        f"🟠 {hisob[config.HOLAT_SABABLI]}",
+        bot,
     )
 
     # 2-xabar: guruhga repost uchun toza hisobot
