@@ -256,9 +256,14 @@ def chiqarish_tasdiq() -> InlineKeyboardMarkup:
 
 # --- Oylik so'rash ---
 
-def oylik_sorash() -> InlineKeyboardMarkup:
+def oylik_sorash(balans: float) -> InlineKeyboardMarkup:
+    """Balans tugmaning ichiga yoziladi — shunda so'rov yuborilganda
+    qaytadan hisoblash kerak bo'lmaydi va javob darhol keladi.
+    Xotira ishlatilmagani uchun bot qayta ishga tushsa ham eski
+    xabarlardagi tugma ishlayveradi."""
     kb = InlineKeyboardBuilder()
-    kb.button(text="💸  Oylik so'rash", callback_data="oylik_sora")
+    kb.button(text="💸  Oylik so'rash",
+              callback_data=f"oylik_sora:{int(round(balans))}")
     kb.adjust(1)
     return kb.as_markup()
 

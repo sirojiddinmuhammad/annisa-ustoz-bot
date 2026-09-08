@@ -11,7 +11,8 @@ import money_service as ms
 import keyboards as kb
 import admin_xabar
 from admin_rejim import haqiqiy_ustoz
-from utils import summa_format, OYLAR, CHIZIQ, bugun, html_himoya, sana_qisqa
+from utils import (summa_format, OYLAR, CHIZIQ, bugun, html_himoya,
+                   sana_qisqa, hozir)
 
 router = Router()
 
@@ -43,11 +44,11 @@ async def balansim(message: Message, state: FSMContext):
         f"{CHIZIQ}\n"
         f"📆  Shu oy ({oy_nomi})\n"
         f"<b>{summa_format(natija['shu_oy'])}</b> so'm",
-        reply_markup=kb.oylik_sorash(),
+        reply_markup=kb.oylik_sorash(balans),
     )
 
 
-@router.callback_query(F.data == "oylik_sora")
+@router.callback_query(F.data.startswith("oylik_sora:"))
 async def oylik_sorash(callback: CallbackQuery, bot: Bot):
     """Ustoz oylik so'raydi — adminga balans ma'lumoti bilan xabar boradi."""
     ustoz = await haqiqiy_ustoz(callback.from_user.id)
@@ -55,21 +56,22 @@ async def oylik_sorash(callback: CallbackQuery, bot: Bot):
         await callback.answer("Siz ro'yxatdan o'tmagansiz.", show_alert=True)
         return
 
-    await callback.answer("Yuborilmoqda...")
-    natija = await ms.ustoz_balansi_hisobla(ustoz)
+    # Balans tugmadan olinadi — qaytadan hisoblanmaydi, javob darhol keladi
+    balans = float(callback.data.split(":")[1])
     ismi = ns.get_title(ustoz, "Ism")
-    balans = natija["balans"]
     belgi = "🟢" if balans >= 0 else "🔴"
 
+    await callback.answer("Yuborildi")
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+    vaqt = hozir()
     await admin_xabar.yuborish(
         f"<b>💸  Oylik so'rovi</b>\n"
         f"{CHIZIQ}\n"
         f"Ustoz: <b>{html_himoya(ismi)}</b>\n"
-        f"Sana: {sana_qisqa(bugun())}\n"
+        f"So'rov vaqti: {sana_qisqa(vaqt.date())}, {vaqt.strftime('%H:%M')}\n"
         f"{CHIZIQ}\n"
-        f"Jami ishlab topgan: {summa_format(natija['ishlab_topgani'])} so'm\n"
-        f"Berilgan oyliklar: {summa_format(natija['berilgan_oyliklar'])} so'm\n\n"
-        f"{belgi}  <b>Berilishi kerak: {summa_format(balans)} so'm</b>",
+        f"{belgi}  <b>Balans: {summa_format(balans)} so'm</b>",
         bot,
     )
 
