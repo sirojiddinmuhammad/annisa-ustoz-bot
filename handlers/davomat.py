@@ -340,6 +340,15 @@ async def holat_almashtirish(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(Davomat.royxat_korish, F.data == "dvm_save")
 async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
+
+    # Ikki marta bosishga qarshi himoya. Notion 10-15 talaba uchun bir necha
+    # soniya ishlaydi — shu oraliqda ikkinchi bosish kelsa, ikkala aylanish
+    # parallel ketib, har talabaga ikkitadan yozuv yaratilardi.
+    if data.get("saqlanmoqda"):
+        await callback.answer("Saqlanmoqda, biroz kuting...", show_alert=True)
+        return
+    await state.update_data(saqlanmoqda=True)
+
     talabalar = data["talabalar"]
     guruh = data["tanlangan_guruh"]
     sana = data["tanlangan_sana"]

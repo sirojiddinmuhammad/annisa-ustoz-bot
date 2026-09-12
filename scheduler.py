@@ -134,6 +134,111 @@ async def ertalabki_eslatma(bot: Bot):
             pass  # ustoz botni bloklagan bo'lishi mumkin
 
     await _oylik_hisob_tekshiruvi(bugun_sana)
+    await _yangi_talabalar_xabari(bot)
+    await _takror_nazorati(bot)
+
+
+async def _yangi_talabalar_xabari(bot: Bot):
+    """Oxirgi sutkada qo'shilgan talabalar haqida ustozga xabar beradi.
+
+    Ta'tildagi ustozga ham yuboriladi — qaytganda bilib tursin.
+    """
+    yozilishlar = await ns.yangi_yozilishlar(soat_orqaga=24)
+    if not yozilishlar:
+        return
+
+    # Ustoz bo'yicha guruhlaymiz — bitta ustozga bitta xabar ketsin
+    ustoz_bo_yicha: dict[str, list] = {}
+    guruh_keshi: dict = {}
+
+    for y in yozilishlar:
+        guruh_ids = ns.get_relation_ids(y, "Guruh")
+        talaba_ids = ns.get_relation_ids(y, "Talaba")
+        if not guruh_ids or not talaba_ids:
+            continue
+
+        guruh_id = guruh_ids[0]
+        if guruh_id not in guruh_keshi:
+            try:
+                guruh = await ns.get_page(guruh_id)
+                ustoz_ids = ns.get_relation_ids(guruh, "Ustoz")
+                guruh_keshi[guruh_id] = {
+                    "nomi": ns.get_title(guruh, "Guruh nomi"),
+                    "ustoz_id": ustoz_ids[0] if ustoz_ids else None,
+                }
+            except Exception:
+                continue
+
+        malumot = guruh_keshi[guruh_id]
+        if not malumot["ustoz_id"]:
+            continue
+
+        try:
+            talaba_ismi = await ns.get_talaba_ismi(talaba_ids[0])
+        except Exception:
+            continue
+
+        boshlagan = ns.get_date_start(y, "Boshlagan sana")
+        ustoz_bo_yicha.setdefault(malumot["ustoz_id"], []).append({
+            "talaba": talaba_ismi,
+            "guruh": malumot["nomi"],
+            "boshlagan": boshlagan[:10] if boshlagan else None,
+        })
+
+    for ustoz_id, royxat in ustoz_bo_yicha.items():
+        try:
+            ustoz = await ns.get_page(ustoz_id)
+        except Exception:
+            continue
+        tg_id = ns.get_rich_text(ustoz, "Telegram ID")
+        if not tg_id or not tg_id.isdigit():
+            continue
+
+        sarlavha = ("🆕  <b>Guruhingizga yangi talaba qo'shildi</b>"
+                    if len(royxat) == 1
+                    else f"🆕  <b>Guruhingizga {len(royxat)} ta yangi talaba qo'shildi</b>")
+        matn = f"{sarlavha}\n{CHIZIQ}"
+        for t in royxat:
+            matn += f"\n👤  {html_himoya(t['talaba'])}\n📚  {html_himoya(t['guruh'])}"
+            if t["boshlagan"]:
+                d = date.fromisoformat(t["boshlagan"])
+                matn += f"\n📅  Boshlaydi: {sana_ozbekcha(d)}"
+            matn += "\n"
+
+        try:
+            await bot.send_message(int(tg_id), matn)
+        except Exception:
+            pass  # ustoz botni bloklagan bo'lishi mumkin
+
+
+async def _takror_nazorati(bot: Bot):
+    """Zaxira nazorat: oxirgi 3 kunda takroriy Davomat yozuvi bor-yo'qligi.
+
+    Asosiy himoya ns.davomat_yaratish() ichida — u takror yaratilishiga yo'l
+    qo'ymaydi. Bu tekshiruv kutilmagan yo'l bilan paydo bo'lgan takrorni
+    ushlaydi. Yozuvlar o'chirilmaguncha har kuni eslatib turadi.
+    """
+    takrorlar = await ns.takroriy_davomatlar(kun_orqaga=3)
+    if not takrorlar:
+        return
+
+    matn = (
+        f"⚠️  <b>Takroriy davomat yozuvlari topildi</b>\n"
+        f"{CHIZIQ}\n"
+        f"Bir xil talabaga bir kun uchun bir nechta yozuv bor.\n"
+        f"Bu puldan ortiqcha yechilishiga olib keladi.\n"
+        f"{CHIZIQ}\n"
+    )
+    for t in takrorlar[:15]:
+        matn += f"• {html_himoya(t['nomi'])} — <b>{t['soni']} ta</b>\n"
+    if len(takrorlar) > 15:
+        matn += f"<i>...va yana {len(takrorlar) - 15} ta</i>\n"
+    matn += (
+        f"{CHIZIQ}\n"
+        f"<i>Notionda ortiqchasini o'chiring. O'chirilmaguncha\n"
+        f"bu xabar har kuni takrorlanadi.</i>"
+    )
+    await admin_xabar.yuborish(matn, bot)
 
 
 async def _oylik_hisob_tekshiruvi(bugun_sana: date):

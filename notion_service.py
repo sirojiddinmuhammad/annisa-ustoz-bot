@@ -8,7 +8,7 @@ import httpx
 from datetime import date, datetime, timedelta
 
 import config
-from utils import bugun
+from utils import bugun, hozir
 
 NOTION_API = "https://api.notion.com/v1"
 HEADERS = {
@@ -423,6 +423,30 @@ async def davomat_yaratish(
     qolda_summa: float | None = None, qolda_ustoz_ulushi: float | None = None,
     chegirma_id: str | None = None,
 ) -> dict:
+    """Davomat yozuvini yaratadi.
+
+    DIQQAT — takror himoyasi: yaratishdan oldin shu Yozilish + shu sana uchun
+    yozuv bor-yo'qligi tekshiriladi. Bor bo'lsa yangisi yaratilmaydi, mavjudi
+    yangilanadi.
+
+    Bu himoya bir necha xato yo'lini birdan yopadi:
+      - ustoz "Saqlash" ni ikki marta bosishi (yozuvlar parallel yaratilardi)
+      - takror tekshiruvi Darslar grafigiga tayangani uchun ishlamay qolishi
+      - saqlash yarim qolib, keyin qaytadan kiritilishi
+      - admin va ustoz bir vaqtda kiritishi
+    """
+    mavjud = await get_davomat_yozuv(yozilish_id, sana)
+    if mavjud:
+        yangilanish: dict = {"Holat": prop_select(holat)}
+        if qolda_summa is not None:
+            yangilanish["Qo'lda summa"] = prop_number(qolda_summa)
+        if qolda_ustoz_ulushi is not None:
+            yangilanish["Qo'lda ustoz ulushi"] = prop_number(qolda_ustoz_ulushi)
+        if chegirma_id and not get_relation_ids(mavjud, "Chegirma"):
+            yangilanish["Chegirma"] = prop_relation([chegirma_id])
+        await update_page(mavjud["id"], yangilanish)
+        return mavjud
+
     nomi = f"{talaba_ismi} — {guruh_nomi} — {sana}"
     properties = {
         "Nomi": prop_title(nomi),
@@ -593,6 +617,57 @@ async def grafik_sanani_kochirish(grafik_page_id: str, yangi_sana: str,
         "Rejadagi sana": prop_date(rejadagi_sana),
         "Izoh": {"rich_text": [{"text": {"content": izoh[:1900]}}]},
     })
+
+
+async def takroriy_davomatlar(kun_orqaga: int = 3) -> list[dict]:
+    """Oxirgi kunlarda bir xil Yozilish + Sana bilan yaratilgan takroriy
+    Davomat yozuvlarini topadi.
+
+    Bu — zaxira nazorat. Asosiy himoya davomat_yaratish() ichida, lekin
+    kutilmagan yo'l bilan takror paydo bo'lsa, admin o'sha kuniyoq bilsin.
+    Qaytadi: [{"sana", "nomi", "soni", "sahifalar"}]
+    """
+    chegara = (bugun() - timedelta(days=kun_orqaga)).isoformat()
+    filter_ = {"property": "Sana", "date": {"on_or_after": chegara}}
+    yozuvlar = await query_all(config.DB_DAVOMAT, filter_)
+
+    guruhlangan: dict[tuple, list] = {}
+    for y in yozuvlar:
+        yozilish = get_relation_ids(y, "Yozilish")
+        sana = get_date_start(y, "Sana")
+        if not yozilish or not sana:
+            continue
+        kalit = (yozilish[0], sana[:10])
+        guruhlangan.setdefault(kalit, []).append(y)
+
+    natija = []
+    for (yozilish_id, sana), sahifalar in guruhlangan.items():
+        if len(sahifalar) > 1:
+            natija.append({
+                "sana": sana,
+                "nomi": get_title(sahifalar[0], "Nomi") or "(nomsiz)",
+                "soni": len(sahifalar),
+                "sahifalar": sahifalar,
+            })
+    natija.sort(key=lambda x: x["sana"], reverse=True)
+    return natija
+
+
+async def yangi_yozilishlar(soat_orqaga: int = 24) -> list[dict]:
+    """Oxirgi sutkada YARATILGAN Yozilishlar.
+
+    Diqqat: "Boshlagan sana" emas, yozuv yaratilgan vaqt bo'yicha qidiriladi.
+    Sababi: admin kelajak sanani qo'yishi mumkin (masalan "20-sentabrdan
+    boshlaydi") — unda ustoz faqat o'sha kuni bilardi, kech bo'lardi.
+    """
+    chegara = (hozir() - timedelta(hours=soat_orqaga)).isoformat()
+    filter_ = {
+        "and": [
+            {"timestamp": "created_time", "created_time": {"on_or_after": chegara}},
+            {"property": "Holat", "select": {"equals": config.YOZILISH_OQIYABDI}},
+        ]
+    }
+    return await query_all(config.DB_YOZILISHLAR, filter_)
 
 
 async def belgilanmagan_darslar(kun_orqaga: int = config.BELGILANMAGAN_TEKSHIRUV_KUN) -> list[dict]:
