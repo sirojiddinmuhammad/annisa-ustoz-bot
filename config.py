@@ -87,12 +87,13 @@ SABAB_TEXNIK = "Texnik muammo"
 SABAB_BOSHQA = "Boshqa"
 SABAB_TATIL = "Ta'til"
 
+# Diqqat: "Boshqa" ataylab ro'yxatdan chiqarilgan — u hech narsa
+# tushuntirmasdi va izoh yozilmasa sabab noaniq qolardi.
 SABABLAR_RO_YXATI = [
     SABAB_KASALLIK,
     SABAB_SAYOHAT,
     SABAB_OILAVIY,
     SABAB_TEXNIK,
-    SABAB_BOSHQA,
 ]
 
 # --- Chegirmalar "Kim ko'taradi" qiymatlari ---

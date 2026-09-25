@@ -552,6 +552,23 @@ async def grafik_yangilash(grafik_page_id: str, holat: str,
     await update_page(grafik_page_id, properties)
 
 
+async def grafik_izoh_qoshish(grafik_page_id: str, izoh: str) -> None:
+    """Darslar grafigi yozuviga izoh qo'shadi — mavjud izoh ustiga emas,
+    yangi qator qilib. Shunda avvalgi yozuvlar (masalan sana ko'chirish
+    izohi) yo'qolmaydi."""
+    mavjud = ""
+    try:
+        sahifa = await get_page(grafik_page_id)
+        mavjud = get_rich_text(sahifa, "Izoh")
+    except Exception:
+        pass
+
+    yangi = f"{mavjud}\n{izoh}" if mavjud else izoh
+    await update_page(grafik_page_id, {
+        "Izoh": {"rich_text": [{"text": {"content": yangi[:1900]}}]},
+    })
+
+
 async def grafik_belgilanmaganga_qaytarish(guruh_id: str, sana: str) -> None:
     yozuv = await get_grafik_yozuv(guruh_id, sana)
     if yozuv:

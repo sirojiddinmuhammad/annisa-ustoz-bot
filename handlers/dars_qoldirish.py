@@ -1,11 +1,19 @@
 # handlers/dars_qoldirish.py
 # Dars qoldirish — Darslar grafigiga yoziladi, Davomatga tegilmaydi.
+#
+# MUHIM o'zgarish: izoh endi MAJBURIY EMAS.
+# Ilgari sabab tanlangach bot matn kutib qolardi — ustoz yozishni unutsa,
+# oqim yarim qolib Notionga hech narsa yozilmasdi. Ustoz "qoldirdim" deb
+# o'ylardi, aslida yozuv yaratilmagan bo'lardi.
+# Endi: sabab tanlanishi bilan dars DARHOL qoldiriladi, izoh esa keyin
+# tugma orqali ixtiyoriy qo'shiladi.
 
 from datetime import date
 
 from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 
 import config
 import notion_service as ns
@@ -19,6 +27,14 @@ from utils import (sana_ozbekcha, yaqin_kunlar, html_himoya, CHIZIQ,
 
 router = Router()
 
+
+class Izoh(StatesGroup):
+    kutilmoqda = State()
+
+
+# ---------------------------------------------------------------------------
+# Bitta guruh darsini qoldirish
+# ---------------------------------------------------------------------------
 
 @router.message(F.text == kb.BTN_DARS_QOLDIRISH)
 async def boshlash(message: Message, state: FSMContext):
@@ -90,48 +106,42 @@ async def sana_tanlandi(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(DarsQoldirish.sabab_tanlash, F.data.startswith("dq_sabab:"))
-async def sabab_tanlandi(callback: CallbackQuery, state: FSMContext):
+async def sabab_tanlandi(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    """Sabab tanlanishi bilan dars DARHOL qoldiriladi — izoh kutilmaydi."""
     idx = int(callback.data.split(":")[1])
     sabab = config.SABABLAR_RO_YXATI[idx]
-    await state.update_data(tanlangan_sabab=sabab)
-    await state.set_state(DarsQoldirish.izoh_kutilmoqda)
-    await callback.message.edit_text(
-        f"<b>🚫  Dars qoldirish</b>\n"
-        f"{CHIZIQ}\n"
-        f"Sabab: <b>{sabab}</b>\n\n"
-        f"Qisqacha izoh yozing.\n"
-        f"Izoh kerak bo'lmasa <code>-</code> yuboring."
-    )
-
-
-@router.message(DarsQoldirish.izoh_kutilmoqda, ~F.text.in_(kb.MENYU_TUGMALARI))
-async def izoh_qabul_qilish(message: Message, state: FSMContext, bot: Bot):
-    izoh = message.text.strip()
-    if izoh == "-":
-        izoh = None
 
     data = await state.get_data()
     guruh = data["tanlangan_guruh"]
     sana = data["tanlangan_sana"]
-    sabab = data["tanlangan_sabab"]
+
+    await callback.answer("Saqlanmoqda...")
 
     grafik = await ns.get_grafik_yozuv(guruh["id"], sana)
     if grafik:
         await ns.grafik_yangilash(grafik["id"], config.GRAFIK_DARS_QOLDIRILDI, sabab=sabab)
+        grafik_id = grafik["id"]
     else:
-        await ns.grafik_yaratish(guruh["id"], sana, config.GRAFIK_DARS_QOLDIRILDI,
-                                  sabab=sabab, izoh=izoh, guruh_nomi=guruh["nomi"])
+        yangi = await ns.grafik_yaratish(
+            guruh["id"], sana, config.GRAFIK_DARS_QOLDIRILDI,
+            sabab=sabab, guruh_nomi=guruh["nomi"],
+        )
+        grafik_id = yangi["id"]
 
-    ustoz = await haqiqiy_ustoz(message.from_user.id)
+    ustoz = await haqiqiy_ustoz(callback.from_user.id)
     ustoz_ismi = ns.get_title(ustoz, "Ism") if ustoz else "Ustoz"
 
     await state.clear()
-    await message.answer(
+    await callback.message.edit_text(
         f"<b>🚫  Dars qoldirildi</b>\n"
         f"{CHIZIQ}\n"
         f"📚  {html_himoya(guruh['nomi'])}\n"
         f"📅  {sana_ozbekcha(date.fromisoformat(sana))}\n"
-        f"📝  {sabab}"
+        f"📝  {sabab}\n"
+        f"{CHIZIQ}\n"
+        f"<i>Qo'shimcha izoh yozmoqchi bo'lsangiz — quyidagi tugma.\n"
+        f"Shart emas, hammasi allaqachon saqlandi.</i>",
+        reply_markup=kb.izoh_qoshish([grafik_id]),
     )
 
     admin_matn = (
@@ -142,12 +152,10 @@ async def izoh_qabul_qilish(message: Message, state: FSMContext, bot: Bot):
         f"Sana: {sana_ozbekcha(date.fromisoformat(sana))}\n"
         f"Sabab: {sabab}"
     )
-    if izoh:
-        admin_matn += f"\nIzoh: {html_himoya(izoh)}"
     await admin_xabar.yuborish(admin_matn, bot)
 
     await admin_rejim.ustozni_ogohlantirish(
-        message.from_user.id,
+        callback.from_user.id,
         f"🚫  <b>{html_himoya(guruh['nomi'])}</b> guruhining\n"
         f"{sana_ozbekcha(date.fromisoformat(sana))} kungi darsi qoldirildi.\n"
         f"Sabab: {html_himoya(sabab)}",
@@ -155,8 +163,118 @@ async def izoh_qabul_qilish(message: Message, state: FSMContext, bot: Bot):
     )
 
 
+# ---------------------------------------------------------------------------
+# Izoh qo'shish (ixtiyoriy)
+# ---------------------------------------------------------------------------
+
+@router.callback_query(F.data.startswith("dq_izoh:"))
+async def izoh_sorash(callback: CallbackQuery, state: FSMContext):
+    """Grafik yozuv ID si tugmadan olinadi — xotira kerak emas, shuning
+    uchun ustoz ertasi kuni bossa ham ishlayveradi."""
+    grafik_id = callback.data.split(":", 1)[1]
+    await state.set_state(Izoh.kutilmoqda)
+    await state.update_data(izoh_grafik_idlar=[grafik_id])
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.answer(
+        f"<b>📝  Izoh</b>\n"
+        f"{CHIZIQ}\n"
+        f"Qisqacha izoh yozing."
+    )
+
+
+@router.callback_query(F.data.startswith("dq_izohall:"))
+async def izoh_sorash_barcha(callback: CallbackQuery, state: FSMContext):
+    """Barcha darslar qoldirilgan holat — izoh hammasiga birdan qo'shiladi.
+    Tugmada ustoz ID va sana turadi, yozuvlar shular bo'yicha qayta topiladi."""
+    qism = callback.data.split(":", 1)[1]
+    ustoz_id, sana = qism.rsplit(":", 1)
+
+    await callback.answer("Yuklanmoqda...")
+    guruhlar = await ns.get_ustoz_faol_guruhlari(ustoz_id, davomatli_faqat=True)
+    idlar = []
+    for g in guruhlar:
+        grafik = await ns.get_grafik_yozuv(g["id"], sana)
+        if grafik and ns.get_select(grafik, "Holat") == config.GRAFIK_DARS_QOLDIRILDI:
+            idlar.append(grafik["id"])
+
+    if not idlar:
+        await callback.message.answer("Izoh qo'shiladigan yozuv topilmadi.")
+        return
+
+    await state.set_state(Izoh.kutilmoqda)
+    await state.update_data(izoh_grafik_idlar=idlar)
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.answer(
+        f"<b>📝  Izoh</b>\n"
+        f"{CHIZIQ}\n"
+        f"Izoh <b>{len(idlar)} ta</b> darsga qo'shiladi.\n\n"
+        f"Qisqacha izoh yozing."
+    )
+
+
+@router.message(Izoh.kutilmoqda, ~F.text.in_(kb.MENYU_TUGMALARI))
+async def izoh_qabul(message: Message, state: FSMContext, bot: Bot):
+    matn = (message.text or "").strip()
+    if len(matn) < 2:
+        await message.answer("Izohni biroz to'liqroq yozing.")
+        return
+
+    data = await state.get_data()
+    idlar = data.get("izoh_grafik_idlar", [])
+    await state.clear()
+
+    for grafik_id in idlar:
+        try:
+            await ns.grafik_izoh_qoshish(grafik_id, matn)
+        except Exception:
+            pass
+
+    await message.answer(
+        f"<b>✅  Izoh qo'shildi</b>\n"
+        f"{CHIZIQ}\n"
+        f"{html_himoya(matn)}"
+    )
+
+    ustoz = await haqiqiy_ustoz(message.from_user.id)
+    ustoz_ismi = ns.get_title(ustoz, "Ism") if ustoz else "Ustoz"
+    await admin_xabar.yuborish(
+        f"<b>📝  Qoldirilgan darsga izoh</b>\n"
+        f"{CHIZIQ}\n"
+        f"Ustoz: {html_himoya(ustoz_ismi)}\n"
+        f"Izoh: {html_himoya(matn)}",
+        bot,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Bugungi barcha darslarni qoldirish
+# ---------------------------------------------------------------------------
+
 @router.callback_query(F.data == "dq_hammasi")
-async def barcha_darslarni_qoldirish(callback: CallbackQuery, bot: Bot):
+async def barcha_sabab_sorash(callback: CallbackQuery, state: FSMContext):
+    ustoz = await haqiqiy_ustoz(callback.from_user.id)
+    if not ustoz:
+        return
+    await state.clear()
+    await callback.message.answer(
+        f"<b>🚫  Bugungi barcha darslarni qoldirish</b>\n"
+        f"{CHIZIQ}\n"
+        f"Sababi nima?",
+        reply_markup=kb.barcha_sabablar(),
+    )
+
+
+@router.callback_query(F.data == "dqall_bekor")
+async def barcha_bekor(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("↩️  Bekor qilindi. Hech narsa o'zgarmadi.")
+
+
+@router.callback_query(F.data.startswith("dqall_sabab:"))
+async def barcha_qoldirish(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    idx = int(callback.data.split(":")[1])
+    sabab = config.SABABLAR_RO_YXATI[idx]
+
     ustoz = await haqiqiy_ustoz(callback.from_user.id)
     if not ustoz:
         return
@@ -169,30 +287,47 @@ async def barcha_darslarni_qoldirish(callback: CallbackQuery, bot: Bot):
     for g in guruhlar:
         grafik = await ns.get_grafik_yozuv(g["id"], bugun_iso)
         if grafik and ns.get_select(grafik, "Holat") == config.GRAFIK_DARS_OTILDI:
-            continue
+            continue  # davomat kiritilgan guruhga tegilmaydi
         nomi = ns.get_title(g, "Guruh nomi")
         if grafik:
             await ns.grafik_yangilash(grafik["id"], config.GRAFIK_DARS_QOLDIRILDI,
-                                       sabab=config.SABAB_BOSHQA)
+                                       sabab=sabab)
         else:
             await ns.grafik_yaratish(g["id"], bugun_iso, config.GRAFIK_DARS_QOLDIRILDI,
-                                      sabab=config.SABAB_BOSHQA, guruh_nomi=nomi)
+                                      sabab=sabab, guruh_nomi=nomi)
         qoldirilgan.append(nomi)
 
+    await state.clear()
     ustoz_ismi = ns.get_title(ustoz, "Ism")
-    if qoldirilgan:
-        royxat = "\n".join(f"•  {html_himoya(n)}" for n in qoldirilgan)
-        await callback.message.answer(
-            f"<b>🚫  Bugungi barcha darslar qoldirildi</b>\n"
-            f"{CHIZIQ}\n{royxat}"
-        )
-        await admin_xabar.yuborish(
-                        f"<b>🚫  Barcha darslar qoldirildi</b>\n"
-            f"{CHIZIQ}\n"
-            f"Ustoz: {html_himoya(ustoz_ismi)}\n"
-            f"{royxat}"
-        , bot)
-    else:
-        await callback.message.answer(
+
+    if not qoldirilgan:
+        await callback.message.edit_text(
             "Qoldiriladigan dars topilmadi — hammasiga davomat kiritilgan."
         )
+        return
+
+    royxat = "\n".join(f"•  {html_himoya(n)}" for n in qoldirilgan)
+    kalit = f"{ustoz['id'].replace('-', '')}:{bugun_iso}"
+    await callback.message.edit_text(
+        f"<b>🚫  Bugungi barcha darslar qoldirildi</b>\n"
+        f"{CHIZIQ}\n{royxat}\n"
+        f"{CHIZIQ}\n"
+        f"📝  Sabab: {sabab}\n\n"
+        f"<i>Qo'shimcha izoh yozmoqchi bo'lsangiz — quyidagi tugma.</i>",
+        reply_markup=kb.barcha_izoh_qoshish(kalit),
+    )
+
+    await admin_xabar.yuborish(
+        f"<b>🚫  Barcha darslar qoldirildi</b>\n"
+        f"{CHIZIQ}\n"
+        f"Ustoz: {html_himoya(ustoz_ismi)}\n"
+        f"Sabab: {sabab}\n"
+        f"{royxat}",
+        bot,
+    )
+
+    await admin_rejim.ustozni_ogohlantirish(
+        callback.from_user.id,
+        f"🚫  Bugungi barcha darslaringiz qoldirildi.\nSabab: {sabab}",
+        bot,
+    )

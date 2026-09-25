@@ -151,6 +151,43 @@ def barcha_darslarni_qoldirish() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
+def izoh_qoshish(grafik_idlar: list[str]) -> InlineKeyboardMarkup:
+    """Izoh qo'shish tugmasi. Grafik yozuv ID si tugmaga yoziladi —
+    shunda xotira kerak emas va tugma muddatsiz ishlaydi (ustoz ertasi
+    kuni bossa ham). Bir nechta yozuv bo'lsa, ular vergul bilan ajratiladi.
+    """
+    qisqa = ",".join(i.replace("-", "")[:32] for i in grafik_idlar[:1])
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📝  Izoh qo'shish", callback_data=f"dq_izoh:{qisqa}")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def barcha_izoh_qoshish(kalit: str) -> InlineKeyboardMarkup:
+    """Barcha darslar qoldirilganda — izoh hammasiga birdan qo'shiladi."""
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📝  Izoh qo'shish", callback_data=f"dq_izohall:{kalit}")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def barcha_sabablar() -> InlineKeyboardMarkup:
+    """Barcha darslarni qoldirish uchun sabab tanlash."""
+    kb = InlineKeyboardBuilder()
+    belgilar = {
+        config.SABAB_KASALLIK: "🤒",
+        config.SABAB_SAYOHAT: "✈️",
+        config.SABAB_OILAVIY: "👨‍👩‍👧",
+        config.SABAB_TEXNIK: "⚙️",
+    }
+    for i, sb in enumerate(config.SABABLAR_RO_YXATI):
+        kb.button(text=f"{belgilar.get(sb, '•')}  {sb}",
+                  callback_data=f"dqall_sabab:{i}")
+    kb.button(text="↩️  Bekor qilish", callback_data="dqall_bekor")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 # --- Ta'til uchun sana tanlash ---
 
 def tatil_boshlanish_sanalari() -> tuple[InlineKeyboardMarkup, list[str]]:
