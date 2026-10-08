@@ -286,8 +286,11 @@ async def barcha_qoldirish(callback: CallbackQuery, state: FSMContext, bot: Bot)
     qoldirilgan = []
     for g in guruhlar:
         grafik = await ns.get_grafik_yozuv(g["id"], bugun_iso)
-        if grafik and ns.get_select(grafik, "Holat") == config.GRAFIK_DARS_OTILDI:
-            continue  # davomat kiritilgan guruhga tegilmaydi
+        # Davomat kiritilgan yoki talabaga ta'til berilgan guruhga tegilmaydi —
+        # ularda kun allaqachon hal qilingan, ustidan yozish ma'lumotni yo'qotadi
+        tegilmaydi = (config.GRAFIK_DARS_OTILDI, config.GRAFIK_TALABAGA_TATIL)
+        if grafik and ns.get_select(grafik, "Holat") in tegilmaydi:
+            continue
         nomi = ns.get_title(g, "Guruh nomi")
         if grafik:
             await ns.grafik_yangilash(grafik["id"], config.GRAFIK_DARS_QOLDIRILDI,

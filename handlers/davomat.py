@@ -86,7 +86,8 @@ async def sana_tanlandi(callback: CallbackQuery, state: FSMContext):
 async def _davomat_ekranini_ochish(callback: CallbackQuery, state: FSMContext,
                                      guruh: dict, sana: str):
     grafik = await ns.get_grafik_yozuv(guruh["id"], sana)
-    if grafik and ns.get_select(grafik, "Holat") == config.GRAFIK_DARS_OTILDI:
+    allaqachon = (config.GRAFIK_DARS_OTILDI, config.GRAFIK_TALABAGA_TATIL)
+    if grafik and ns.get_select(grafik, "Holat") in allaqachon:
         await _mavjud_yozuvni_korsatish(callback, state, guruh, sana)
         return
 
@@ -430,6 +431,35 @@ async def davomat_saqlash(callback: CallbackQuery, state: FSMContext, bot: Bot):
                 )
             except Exception:
                 pass  # ogohlantirish ishlamasa ham davomat saqlanishi kerak
+
+    # Hamma talaba "Ta'til" bo'lsa, dars o'tilmagan — lekin kun BELGILANGAN.
+    # Aks holda grafik "Belgilanmagan" bo'lib qolib, ustozga har kuni eslatma
+    # kelaverardi (ayniqsa individual guruhlarda sezilardi).
+    faqat_tatil = (not dars_bolgan) and bool(talabalar)
+
+    if faqat_tatil:
+        rejadagi_t = data.get("rejadagi_sana")
+        kochirildi_t = data.get("sana_kochirildi", False)
+
+        if kochirildi_t and rejadagi_t and rejadagi_t != sana:
+            # Sana ko'chirilgan — rejadagi kundagi yozuvni ko'chiramiz, aks
+            # holda eski kun "Belgilanmagan" bo'lib qolib ketardi
+            eski = await ns.get_grafik_yozuv(guruh["id"], rejadagi_t)
+            if eski:
+                await ns.grafik_sanani_kochirish(
+                    eski["id"], sana, rejadagi_t, guruh["nomi"]
+                )
+                await ns.grafik_yangilash(eski["id"], config.GRAFIK_TALABAGA_TATIL)
+            else:
+                await ns.grafik_yaratish(guruh["id"], sana, config.GRAFIK_TALABAGA_TATIL,
+                                          guruh_nomi=guruh["nomi"])
+        else:
+            grafik = await ns.get_grafik_yozuv(guruh["id"], sana)
+            if grafik:
+                await ns.grafik_yangilash(grafik["id"], config.GRAFIK_TALABAGA_TATIL)
+            else:
+                await ns.grafik_yaratish(guruh["id"], sana, config.GRAFIK_TALABAGA_TATIL,
+                                          guruh_nomi=guruh["nomi"])
 
     if dars_bolgan:
         dars_raqami = await ns.keyingi_dars_raqami(guruh["id"])

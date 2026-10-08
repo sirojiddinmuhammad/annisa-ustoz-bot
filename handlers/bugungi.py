@@ -21,12 +21,14 @@ router = Router()
 HOLAT_BELGISI = {
     config.GRAFIK_DARS_OTILDI: "✅",
     config.GRAFIK_DARS_QOLDIRILDI: "🚫",
+    config.GRAFIK_TALABAGA_TATIL: "🟠",
     config.GRAFIK_BELGILANMAGAN: "⏳",
 }
 
 HOLAT_MATNI = {
     config.GRAFIK_DARS_OTILDI: "davomat kiritilgan",
     config.GRAFIK_DARS_QOLDIRILDI: "dars qoldirilgan",
+    config.GRAFIK_TALABAGA_TATIL: "talabaga ta'til",
     config.GRAFIK_BELGILANMAGAN: "kutilmoqda",
 }
 

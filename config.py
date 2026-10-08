@@ -78,6 +78,10 @@ YOZILISH_TUGATDI = "Tugatdi"
 GRAFIK_BELGILANMAGAN = "Belgilanmagan"
 GRAFIK_DARS_OTILDI = "Dars o'tildi"
 GRAFIK_DARS_QOLDIRILDI = "Dars qoldirildi"
+# Ustoz darsga tayyor edi, lekin talabaga jiddiy sabab bilan ta'til berildi.
+# Dars o'tilmadi: pul hech kimga ketmaydi, dars raqami ham oshmaydi.
+# "Dars qoldirildi" dan farqi — bunda ustoz aybdor emas.
+GRAFIK_TALABAGA_TATIL = "Talabaga ta'til"
 
 # --- Dars qoldirish sabablari ---
 SABAB_KASALLIK = "Kasallik"

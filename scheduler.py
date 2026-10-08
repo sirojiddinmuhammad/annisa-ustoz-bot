@@ -323,8 +323,15 @@ async def kunlik_hisobot(bot: Bot):
             {"property": "Holat", "select": {"equals": config.GRAFIK_DARS_QOLDIRILDI}},
         ]
     }
+    filter_tatil = {
+        "and": [
+            {"property": "Sana", "date": {"equals": bugun_iso}},
+            {"property": "Holat", "select": {"equals": config.GRAFIK_TALABAGA_TATIL}},
+        ]
+    }
     otildi = await ns.query_all(config.DB_DARSLAR_GRAFIGI, filter_otildi)
     qoldirildi = await ns.query_all(config.DB_DARSLAR_GRAFIGI, filter_qoldirildi)
+    talabaga_tatil = await ns.query_all(config.DB_DARSLAR_GRAFIGI, filter_tatil)
     belgilanmagan = await ns.belgilanmagan_darslar(kun_orqaga=0)
 
     ustozlar = await ns.get_barcha_ustozlar_faol()
@@ -361,6 +368,10 @@ async def kunlik_hisobot(bot: Bot):
 
     matn += f"\n🚫  <b>Dars qoldirildi: {len(qoldirildi)}</b>\n"
     matn += await royxat(qoldirildi, sabab_bilan=True)
+
+    if talabaga_tatil:
+        matn += f"\n🟠  <b>Talabaga ta'til: {len(talabaga_tatil)}</b>\n"
+        matn += await royxat(talabaga_tatil)
 
     matn += f"\n⚠️  <b>Belgilanmagan: {len(belgilanmagan)}</b>\n"
     matn += await royxat(belgilanmagan)
